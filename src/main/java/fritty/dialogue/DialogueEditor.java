@@ -819,7 +819,7 @@ public final class DialogueEditor implements Listener {
         holder.inventory.setItem(
                 50,
                 createItem(
-                        Material.ENCHANTED_BOOK,
+                    Material.WRITABLE_BOOK,
                         Component.text(
                                 "Налаштування діалогу",
                                 NamedTextColor.LIGHT_PURPLE
