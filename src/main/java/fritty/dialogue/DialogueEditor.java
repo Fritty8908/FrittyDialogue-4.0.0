@@ -866,12 +866,13 @@ public final class DialogueEditor implements Listener {
             EditorHolder holder,
             int slot
     ) {
+
         if (slot == 45) {
             openMainMenu(player, 0);
             return;
         }
 
-        if (slot == 48) {
+        if (slot == 0) {
             requestNodeName(
                     player,
                     holder.dialogueId,
@@ -880,7 +881,7 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (slot == 50) {
+        if (slot == 4) {
             openSettingsMenu(
                     player,
                     holder.dialogueId
