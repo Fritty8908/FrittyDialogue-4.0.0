@@ -1415,6 +1415,7 @@ public final class DialogueEditor implements Listener {
                 0,
                 "Редагування умови"
         );
+        holder.extraId = conditionId;
 
         holder.inventory.setItem(
                 10,
@@ -1606,6 +1607,7 @@ public final class DialogueEditor implements Listener {
                 0,
                 "Редагування нагороди"
         );
+        holder.extraId = rewardId;
 
         holder.inventory.setItem(
                 10,
@@ -2004,15 +2006,9 @@ public final class DialogueEditor implements Listener {
     }
 
     @EventHandler
+    @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) {
-            return;
-        }
-
-        if (event.getInventory().getHolder()
-                instanceof EditorHolder) {
-            clearChatPrompt(player);
-        }
+        // Chat prompts must remain active after closing the editor.
     }
 
     // ============================================================
