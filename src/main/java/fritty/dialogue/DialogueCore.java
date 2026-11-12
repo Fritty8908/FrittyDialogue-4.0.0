@@ -1157,46 +1157,38 @@ public final class DialogueCore {
 
         return result;
     }
+    private List<Reward> deserializeRewards(
+            List<Map<?, ?>> values
+    ) {
+        List<Reward> rewards = new ArrayList<>();
 
-private List<Reward> deserializeRewards(
-        List<Map<?, ?>> values
-) {
-    List<Reward> rewards = new ArrayList<>();
-
-    if (values == null) {
-        return rewards;
-    }
-
-    for (Map<?, ?> value : values) {
-        if (value == null) {
-            continue;
+        if (values == null) {
+            return rewards;
         }
 
-        String type = String.valueOf(
-                value.containsKey("type") ? value.get("type") : "command"
-        );
+        for (Map<?, ?> value : values) {
+            if (value == null) {
+                continue;
+            }
 
-        String rewardValue = String.valueOf(
-                value.containsKey("value") ? value.get("value") : ""
-        );
+            String type = String.valueOf(
+                    value.containsKey("type") ? value.get("type") : "command"
+            );
 
-        int amount = 1;
+            String rewardValue = String.valueOf(
+                    value.containsKey("value") ? value.get("value") : ""
+            );
 
-        Object amountValue = value.get("amount");
+            int amount = 1;
 
-        if (amountValue instanceof Number number) {
-            amount = Math.max(1, number.intValue());
-        }
+            Object amountValue = value.get("amount");
 
-        rewards.add(new Reward(
-                type,
-                rewardValue,
-                amount
-        ));
-    }
+            if (amountValue instanceof Number number) {
+                amount = Math.max(1, number.intValue());
+            }
 
-    return rewards;
-}
+            rewards.add(new Reward(
+                    type,
                     rewardValue,
                     amount
             ));
@@ -1204,6 +1196,7 @@ private List<Reward> deserializeRewards(
 
         return rewards;
     }
+
 
     /*
      * ============================================================
