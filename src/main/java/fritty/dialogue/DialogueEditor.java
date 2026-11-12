@@ -1,8 +1,6 @@
-
 package fritty.dialogue;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
-
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -24,6 +22,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -35,6 +34,11 @@ public final class DialogueEditor implements Listener {
 
     private static final int INVENTORY_SIZE = 54;
     private static final int ENTRIES_PER_PAGE = 28;
+
+    private static final int SLOT_PREVIOUS = 45;
+    private static final int SLOT_CREATE = 48;
+    private static final int SLOT_BACK = 49;
+    private static final int SLOT_NEXT = 53;
 
     private static final Component PREFIX =
             Component.text("Fritty", NamedTextColor.RED)
@@ -63,28 +67,16 @@ public final class DialogueEditor implements Listener {
         this.runtime = runtime;
     }
 
-    /*
-     * ============================================================
-     * INITIALIZATION
-     * ============================================================
-     */
-
     public void initialize() {
         if (initialized) {
             return;
         }
 
         initialized = true;
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /*
-     * ============================================================
-     * GUI SCREENS
-     * ============================================================
-     */
-
     private enum Screen {
-
         MAIN,
         DIALOGUE,
         NODES,
@@ -93,19 +85,17 @@ public final class DialogueEditor implements Listener {
         SETTINGS,
         SOUND_PICKER,
         CONDITION_EDITOR,
-        REWARD_EDITOR
-
+        REWARD_EDITOR,
+        BRANCH_PICKER
     }
 
     private static final class EditorHolder
             implements InventoryHolder {
 
         private final Screen screen;
-
         private final String dialogueId;
         private final String nodeId;
         private final String answerId;
-
         private final int page;
 
         private final List<String> entries =
@@ -139,22 +129,134 @@ public final class DialogueEditor implements Listener {
     ) {
     }
 
-    /*
-     * ============================================================
-     * MAIN MENU
-     * ============================================================
-     */
-
-    public void openMainMenu(
-            Player player,
-            int page
+    private ItemStack item(
+            Material material,
+            String name,
+            NamedTextColor color,
+            String... lore
     ) {
+        ItemStack stack = new ItemStack(material);
+        ItemMeta meta = stack.getItemMeta();
+
+        meta.displayName(
+                Component.text(name, color)
+                        .decoration(TextDecoration.ITALIC, false)
+        );
+
+        if (lore.length > 0) {
+            List<Component> lines = new ArrayList<>();
+
+            for (String line : lore) {
+                lines.add(
+                        Component.text(
+                                line,
+                                NamedTextColor.GRAY
+                        ).decoration(TextDecoration.ITALIC, false)
+                );
+            }
+
+            meta.lore(lines);
+        }
+
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    private void fillBackground(Inventory inventory) {
+        ItemStack background = item(
+                Material.GRAY_STAINED_GLASS_PANE,
+                " ",
+                NamedTextColor.GRAY
+        );
+
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, background);
+        }
+    }
+
+    private int[] createEntrySlots() {
+        return new int[]{
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25,
+                28, 29, 30, 31, 32, 33, 34,
+                37, 38, 39, 40, 41, 42, 43
+        };
+    }
+
+    private EditorHolder createHolder(
+            Screen screen,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page,
+            String title
+    ) {
+        EditorHolder holder = new EditorHolder(
+                screen,
+                dialogueId,
+                nodeId,
+                answerId,
+                page
+        );
+
+        holder.inventory = Bukkit.createInventory(
+                holder,
+                INVENTORY_SIZE,
+                Component.text(title, NamedTextColor.DARK_RED)
+        );
+
+        fillBackground(holder.inventory);
+        return holder;
+    }
+
+    private void open(Player player, EditorHolder holder) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        player.openInventory(holder.inventory);
+    }
+
+    private void save(String dialogueId) {
+        if (dialogueId != null) {
+            core.saveDialogue(dialogueId);
+        }
+    }
+
+    private DialogueCore.Dialogue getDialogue(String dialogueId) {
+        return core.getDialogue(dialogueId);
+    }
+
+    private DialogueCore.Node getNode(
+            String dialogueId,
+            String nodeId
+    ) {
+        DialogueCore.Dialogue dialogue = getDialogue(dialogueId);
+
+        if (dialogue == null) {
+            return null;
+        }
+
+        return dialogue.getNode(nodeId);
+    }
+
+    // ============================================================
+    // MAIN MENU
+    // ============================================================
+
+    public void openMainMenu(Player player) {
+        openMainMenu(player, 0);
+    }
+
+    public void openMainMenu(Player player, int page) {
         if (player == null || !player.isOnline()) {
             return;
         }
 
         List<String> dialogueIds =
                 new ArrayList<>(core.getDialogueIds());
+
+        dialogueIds.sort(String.CASE_INSENSITIVE_ORDER);
 
         int maxPage = Math.max(
                 0,
@@ -163,24 +265,16 @@ public final class DialogueEditor implements Listener {
 
         page = Math.max(0, Math.min(page, maxPage));
 
-        EditorHolder holder = new EditorHolder(
+        EditorHolder holder = createHolder(
                 Screen.MAIN,
                 null,
                 null,
                 null,
-                page
+                page,
+                "FrittyDialogue • Діалоги"
         );
 
-        holder.inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text(
-                        "FrittyDialogue • Діалоги",
-                        NamedTextColor.DARK_RED
-                )
-        );
-
-        fillBackground(holder.inventory);
+        int[] slots = createEntrySlots();
 
         int start = page * ENTRIES_PER_PAGE;
         int end = Math.min(
@@ -188,229 +282,1693 @@ public final class DialogueEditor implements Listener {
                 dialogueIds.size()
         );
 
-        int[] slots = createEntrySlots();
-
         for (int i = start; i < end; i++) {
-
             String id = dialogueIds.get(i);
 
             holder.entries.add(id);
 
-            int slot = slots[i - start];
-
             holder.inventory.setItem(
-                    slot,
-                    createItem(
+                    slots[i - start],
+                    item(
                             Material.WRITABLE_BOOK,
-                            Component.text(
-                                    id,
-                                    NamedTextColor.GOLD
-                            ),
-                            List.of(
-                                    Component.text(
-                                            "Натисни, щоб відкрити редактор",
-                                            NamedTextColor.GRAY
-                                    ),
-                                    Component.text(
-                                            " ",
-                                            NamedTextColor.GRAY
-                                    ),
-                                    Component.text(
-                                            "ЛКМ — відкрити",
-                                            NamedTextColor.YELLOW
-                                    )
-                            )
+                            id,
+                            NamedTextColor.GOLD,
+                            "ЛКМ — відкрити редактор",
+                            "ПКМ — перейменувати",
+                            "Shift + ПКМ — видалити"
                     )
             );
         }
 
         holder.inventory.setItem(
-                49,
-                createItem(
+                SLOT_CREATE,
+                item(
                         Material.EMERALD,
-                        Component.text(
-                                "Створити діалог",
-                                NamedTextColor.GREEN
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Натисни, щоб створити новий діалог",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Назву введеш у чаті",
-                                        NamedTextColor.YELLOW
-                                )
-                        )
+                        "Створити діалог",
+                        NamedTextColor.GREEN,
+                        "Створити новий діалог"
                 )
         );
 
-        holder.inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        Component.text(
-                                "Попередня сторінка",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Сторінка " + (page + 1),
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
 
-        holder.inventory.setItem(
-                53,
-                createItem(
-                        Material.ARROW,
-                        Component.text(
-                                "Наступна сторінка",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Сторінка " + (page + 1),
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
 
         holder.inventory.setItem(
                 4,
-                createItem(
+                item(
                         Material.BOOK,
-                        Component.text(
-                                "FrittyDialogue",
-                                NamedTextColor.RED
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Редактор діалогів",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Усього діалогів: "
-                                                + dialogueIds.size(),
-                                        NamedTextColor.YELLOW
-                                ),
-                                Component.text(
-                                        "Сторінка: "
-                                                + (page + 1)
-                                                + " / "
-                                                + (maxPage + 1),
-                                        NamedTextColor.GRAY
-                                )
-                        )
+                        "Редактор діалогів",
+                        NamedTextColor.GOLD,
+                        "Усього діалогів: " + dialogueIds.size()
                 )
         );
 
-        player.openInventory(holder.inventory);
-
-        playGuiSound(
-                player,
-                Sound.UI_BUTTON_CLICK
-        );
+        open(player, holder);
     }
 
-    /*
-     * ============================================================
-     * INVENTORY DECORATION
-     * ============================================================
-     */
+    // ============================================================
+    // DIALOGUE MENU
+    // ============================================================
 
-    private void fillBackground(Inventory inventory) {
-
-        ItemStack filler = createItem(
-                Material.BLACK_STAINED_GLASS_PANE,
-                Component.text(" "),
-                List.of()
-        );
-
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, filler);
-        }
-    }
-
-    private int[] createEntrySlots() {
-
-        return new int[] {
-                10, 11, 12, 13, 14, 15, 16,
-                19, 20, 21, 22, 23, 24, 25,
-                28, 29, 30, 31, 32, 33, 34,
-                37, 38, 39, 40, 41, 42, 43
-        };
-    }
-
-    private ItemStack createItem(
-            Material material,
-            Component name,
-            List<Component> lore
+    private void openDialogueMenu(
+            Player player,
+            String dialogueId
     ) {
-        ItemStack item = new ItemStack(material);
+        DialogueCore.Dialogue dialogue =
+                getDialogue(dialogueId);
 
-        ItemMeta meta = item.getItemMeta();
-
-        if (meta != null) {
-
-            meta.displayName(
-                    name.decoration(
-                            TextDecoration.ITALIC,
-                            false
-                    )
+        if (dialogue == null) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Діалог не знайдено.",
+                            NamedTextColor.RED
+                    ))
             );
+            openMainMenu(player);
+            return;
+        }
 
-            List<Component> formattedLore =
-                    new ArrayList<>();
+        EditorHolder holder = createHolder(
+                Screen.DIALOGUE,
+                dialogueId,
+                null,
+                null,
+                0,
+                "Діалог • " + dialogueId
+        );
 
-            for (Component line : lore) {
-                formattedLore.add(
-                        line.decoration(
-                                TextDecoration.ITALIC,
-                                false
-                        )
-                );
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Гілки діалогу",
+                        NamedTextColor.YELLOW,
+                        "Переглянути та редагувати гілки",
+                        "Головна гілка start створюється автоматично"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.COMPARATOR,
+                        "Налаштування діалогу",
+                        NamedTextColor.YELLOW,
+                        "Загальні параметри діалогу"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.NAME_TAG,
+                        "Перейменувати діалог",
+                        NamedTextColor.YELLOW,
+                        "Змінити ідентифікатор діалогу"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.BARRIER,
+                        "Видалити діалог",
+                        NamedTextColor.RED,
+                        "Видалити цей діалог повністю"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // BRANCH LIST
+    // ============================================================
+
+    private void openNodeList(
+            Player player,
+            String dialogueId,
+            int page
+    ) {
+        DialogueCore.Dialogue dialogue =
+                getDialogue(dialogueId);
+
+        if (dialogue == null) {
+            openMainMenu(player);
+            return;
+        }
+
+        List<DialogueCore.Node> nodes =
+                new ArrayList<>(dialogue.getNodes());
+
+        nodes.sort((first, second) -> {
+            if (first.getId().equalsIgnoreCase("start")) {
+                return -1;
             }
 
-            meta.lore(formattedLore);
+            if (second.getId().equalsIgnoreCase("start")) {
+                return 1;
+            }
 
-            item.setItemMeta(meta);
+            return first.getId().compareToIgnoreCase(
+                    second.getId()
+            );
+        });
+
+        int maxPage = Math.max(
+                0,
+                (nodes.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
+                Screen.NODES,
+                dialogueId,
+                null,
+                null,
+                page,
+                "Гілки • " + dialogueId
+        );
+
+        int[] slots = createEntrySlots();
+
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                nodes.size()
+        );
+
+        for (int i = start; i < end; i++) {
+            DialogueCore.Node node = nodes.get(i);
+            String nodeId = node.getId();
+
+            holder.entries.add(nodeId);
+
+            boolean mainBranch =
+                    nodeId.equalsIgnoreCase("start");
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            mainBranch
+                                    ? Material.ENCHANTED_BOOK
+                                    : Material.PAPER,
+                            nodeId,
+                            mainBranch
+                                    ? NamedTextColor.GOLD
+                                    : NamedTextColor.YELLOW,
+                            mainBranch
+                                    ? "Головна гілка"
+                                    : "Додаткова гілка",
+                            "ЛКМ — редагувати",
+                            "ПКМ — перейменувати",
+                            mainBranch
+                                    ? "Головну гілку не можна видалити"
+                                    : "Shift + ПКМ — видалити"
+                    )
+            );
         }
 
-        return item;
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.PAPER,
+                        "Створити гілку",
+                        NamedTextColor.GREEN,
+                        "Створити нову додаткову гілку"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
     }
 
-    /*
-     * ============================================================
-     * GUI SOUND
-     * ============================================================
-     */
+    // ============================================================
+    // BRANCH EDITOR
+    // ============================================================
 
-    private void playGuiSound(
+    private void openNodeMenu(
             Player player,
-            Sound sound
+            String dialogueId,
+            String nodeId
     ) {
-        player.playSound(
-                player.getLocation(),
-                sound,
-                0.7f,
-                1.0f
+        DialogueCore.Node node =
+                getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        EditorHolder holder = createHolder(
+                Screen.NODE,
+                dialogueId,
+                nodeId,
+                null,
+                0,
+                "Гілка • " + nodeId
+        );
+
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Текст діалогу",
+                        NamedTextColor.YELLOW,
+                        "Змінити текст цієї гілки"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.CLOCK,
+                        "Затримка тексту",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати швидкість появи тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.OAK_SIGN,
+                        "Відповіді",
+                        NamedTextColor.YELLOW,
+                        "Додати або редагувати відповіді",
+                        "Кількість відповідей не обмежена"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.COMPARATOR,
+                        "Налаштування гілки",
+                        NamedTextColor.YELLOW,
+                        "Камера, координати, звук та інші параметри",
+                        "Кожен параметр може успадковуватися окремо"
+                )
+        );
+
+        holder.inventory.setItem(
+                28,
+                item(
+                        Material.NAME_TAG,
+                        "Перейменувати гілку",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (!nodeId.equalsIgnoreCase("start")) {
+            holder.inventory.setItem(
+                    30,
+                    item(
+                            Material.BARRIER,
+                            "Видалити гілку",
+                            NamedTextColor.RED
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до гілок",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+    // ============================================================
+    // ANSWER LIST
+    // ============================================================
+
+    private void openAnswerList(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            int page
+    ) {
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        List<DialogueCore.Answer> answers =
+                new ArrayList<>(node.getAnswers());
+
+        int maxPage = Math.max(
+                0,
+                (answers.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
+                Screen.ANSWER,
+                dialogueId,
+                nodeId,
+                null,
+                page,
+                "Відповіді • " + nodeId
+        );
+
+        int[] slots = createEntrySlots();
+
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                answers.size()
+        );
+
+        for (int i = start; i < end; i++) {
+            DialogueCore.Answer answer = answers.get(i);
+
+            holder.entries.add(answer.getId());
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.PAPER,
+                            answer.getText(),
+                            answer.isEnabled()
+                                    ? NamedTextColor.YELLOW
+                                    : NamedTextColor.RED,
+                            "Ціль: " + answer.getTargetNode(),
+                            "ЛКМ — редагувати",
+                            "ПКМ — увімкнути/вимкнути",
+                            "Shift + ПКМ — видалити"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Створити відповідь",
+                        NamedTextColor.GREEN,
+                        "Додати нову відповідь до гілки"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до гілки",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // ANSWER EDITOR
+    // ============================================================
+
+    private void openAnswerMenu(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        DialogueCore.Answer answer = node.getAnswer(answerId);
+
+        if (answer == null) {
+            openAnswerList(player, dialogueId, nodeId, 0);
+            return;
+        }
+
+        EditorHolder holder = createHolder(
+                Screen.ANSWER,
+                dialogueId,
+                nodeId,
+                answerId,
+                0,
+                "Відповідь • " + answerId
+        );
+
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.NAME_TAG,
+                        "Текст відповіді",
+                        NamedTextColor.YELLOW,
+                        answer.getText()
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.COMPASS,
+                        "Цільова гілка",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answer.getTargetNode(),
+                        "Можна вибрати будь-яку гілку",
+                        "Дозволено переходити в ту саму гілку"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.REDSTONE,
+                        "Умови доступності",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати умови показу відповіді"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.COMMAND_BLOCK,
+                        "Команди відповіді",
+                        NamedTextColor.YELLOW,
+                        "Команди після вибору відповіді"
+                )
+        );
+
+        holder.inventory.setItem(
+                28,
+                item(
+                        Material.CHEST,
+                        "Нагороди відповіді",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати нагороди за вибір"
+                )
+        );
+
+        holder.inventory.setItem(
+                30,
+                item(
+                        Material.NOTE_BLOCK,
+                        "Звук відповіді",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати звук вибору"
+                )
+        );
+
+        holder.inventory.setItem(
+                32,
+                item(
+                        answer.isEnabled()
+                                ? Material.LIME_DYE
+                                : Material.GRAY_DYE,
+                        answer.isEnabled()
+                                ? "Відповідь увімкнена"
+                                : "Відповідь вимкнена",
+                        answer.isEnabled()
+                                ? NamedTextColor.GREEN
+                                : NamedTextColor.RED,
+                        "Натисни, щоб перемкнути стан"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до відповідей",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        holder.inventory.setItem(
+                50,
+                item(
+                        Material.BARRIER,
+                        "Видалити відповідь",
+                        NamedTextColor.RED
+                )
+        );
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // DIALOGUE SETTINGS
+    // ============================================================
+
+    private void openDialogueSettings(
+            Player player,
+            String dialogueId
+    ) {
+        DialogueCore.Dialogue dialogue =
+                getDialogue(dialogueId);
+
+        if (dialogue == null) {
+            openMainMenu(player);
+            return;
+        }
+
+        EditorHolder holder = createHolder(
+                Screen.SETTINGS,
+                dialogueId,
+                "start",
+                null,
+                0,
+                "Налаштування • " + dialogueId
+        );
+
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.PLAYER_HEAD,
+                        "Приховати інших гравців",
+                        NamedTextColor.YELLOW,
+                        "Перемикання видимості інших гравців"
+                )
+        );
+
+        holder.inventory.setItem(
+                11,
+                item(
+                        Material.CLOCK,
+                        "Одноразовий діалог",
+                        NamedTextColor.YELLOW,
+                        "Дозволити проходження лише один раз"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.GLASS,
+                        "Видимість крізь блоки",
+                        NamedTextColor.YELLOW,
+                        "Налаштування видимості тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                13,
+                item(
+                        Material.ENDER_EYE,
+                        "Позиція тексту",
+                        NamedTextColor.YELLOW,
+                        "Задати глобальну позицію тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.SPYGLASS,
+                        "Позиція камери",
+                        NamedTextColor.YELLOW,
+                        "Зберегти позицію камери гравця"
+                )
+        );
+
+        holder.inventory.setItem(
+                15,
+                item(
+                        Material.ARMOR_STAND,
+                        "Плавна камера",
+                        NamedTextColor.YELLOW,
+                        "Увімкнути або вимкнути плавний рух"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.NOTE_BLOCK,
+                        "Звук друку",
+                        NamedTextColor.YELLOW,
+                        "Вибрати звук появи символів"
+                )
+        );
+
+        holder.inventory.setItem(
+                19,
+                item(
+                        Material.REPEATER,
+                        "Швидкість друку",
+                        NamedTextColor.YELLOW,
+                        "Затримка між символами"
+                )
+        );
+
+        holder.inventory.setItem(
+                20,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Друк посимвольно",
+                        NamedTextColor.YELLOW,
+                        "Увімкнути або вимкнути анімацію"
+                )
+        );
+
+        holder.inventory.setItem(
+                21,
+                item(
+                        Material.JUKEBOX,
+                        "Гучність і тон",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати параметри звуку"
+                )
+        );
+
+        holder.inventory.setItem(
+                22,
+                item(
+                        Material.MAP,
+                        "Масштаб тексту",
+                        NamedTextColor.YELLOW,
+                        "Змінити розмір тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                23,
+                item(
+                        Material.PAPER,
+                        "Ширина текстового вікна",
+                        NamedTextColor.YELLOW,
+                        "Змінити ширину вікна"
+                )
+        );
+
+        holder.inventory.setItem(
+                24,
+                item(
+                        Material.BLACK_STAINED_GLASS_PANE,
+                        "Прозорість фону",
+                        NamedTextColor.YELLOW,
+                        "Змінити прозорість фону вікна"
+                )
+        );
+
+        holder.inventory.setItem(
+                25,
+                item(
+                        Material.POTION,
+                        "Невидимість",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати ефект невидимості"
+                )
+        );
+
+        holder.inventory.setItem(
+                28,
+                item(
+                        Material.FEATHER,
+                        "Повільність",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати ефект повільності"
+                )
+        );
+
+        holder.inventory.setItem(
+                29,
+                item(
+                        Material.RECOVERY_COMPASS,
+                        "Повернення на початок",
+                        NamedTextColor.YELLOW,
+                        "Повернутися до початкової гілки"
+                )
+        );
+
+        holder.inventory.setItem(
+                30,
+                item(
+                        Material.OAK_SIGN,
+                        "Підказки ActionBar",
+                        NamedTextColor.YELLOW,
+                        "Показувати підказки керування"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // BRANCH SETTINGS
+    // ============================================================
+
+    private void openBranchSettings(
+            Player player,
+            String dialogueId,
+            String nodeId
+    ) {
+        DialogueCore.Node node =
+                getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        EditorHolder holder = createHolder(
+                Screen.SETTINGS,
+                dialogueId,
+                nodeId,
+                null,
+                0,
+                "Налаштування гілки • " + nodeId
+        );
+
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.PAINTING,
+                        "Колір тексту",
+                        NamedTextColor.YELLOW,
+                        "Змінити лише колір тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                11,
+                item(
+                        Material.BLACK_CONCRETE,
+                        "Колір фону",
+                        NamedTextColor.YELLOW,
+                        "Змінити лише колір фону"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.MAP,
+                        "Масштаб тексту",
+                        NamedTextColor.YELLOW,
+                        "Змінити лише розмір тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                13,
+                item(
+                        Material.ENDER_EYE,
+                        "Позиція тексту",
+                        NamedTextColor.YELLOW,
+                        "Задати координати тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.SPYGLASS,
+                        "Позиція камери",
+                        NamedTextColor.YELLOW,
+                        "Зберегти поточну позицію гравця"
+                )
+        );
+
+        holder.inventory.setItem(
+                15,
+                item(
+                        Material.CLOCK,
+                        "Затримка друку",
+                        NamedTextColor.YELLOW,
+                        "Змінити швидкість появи тексту"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.NOTE_BLOCK,
+                        "Звук друку",
+                        NamedTextColor.YELLOW,
+                        "Вибрати звук для цієї гілки"
+                )
+        );
+
+        holder.inventory.setItem(
+                19,
+                item(
+                        Material.COMMAND_BLOCK,
+                        "Команди гілки",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати команди гілки"
+                )
+        );
+
+        holder.inventory.setItem(
+                20,
+                item(
+                        Material.REDSTONE,
+                        "Умови гілки",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати умови входу"
+                )
+        );
+
+        holder.inventory.setItem(
+                21,
+                item(
+                        Material.CHEST,
+                        "Нагороди гілки",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати нагороди"
+                )
+        );
+
+        holder.inventory.setItem(
+                22,
+                item(
+                        Material.RECOVERY_COMPASS,
+                        "Повернення на початок",
+                        NamedTextColor.YELLOW,
+                        "Налаштувати повернення"
+                )
+        );
+
+        holder.inventory.setItem(
+                23,
+                item(
+                        Material.BARRIER,
+                        "Скинути параметр",
+                        NamedTextColor.YELLOW,
+                        "Повернути вибраний параметр до успадкування"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до гілки",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+    // ============================================================
+    // CONDITION EDITOR
+    // ============================================================
+
+    private void openConditionList(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page
+    ) {
+        EditorHolder holder = createHolder(
+                Screen.CONDITION_EDITOR,
+                dialogueId,
+                nodeId,
+                answerId,
+                page,
+                "Умови доступності"
+        );
+
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        DialogueCore.Answer answer =
+                answerId == null ? null : node.getAnswer(answerId);
+
+        if (answer == null) {
+            openNodeMenu(player, dialogueId, nodeId);
+            return;
+        }
+
+        List<DialogueCore.Condition> conditions =
+                new ArrayList<>(answer.getConditions());
+
+        int maxPage = Math.max(
+                0,
+                (conditions.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        holder = createHolder(
+                Screen.CONDITION_EDITOR,
+                dialogueId,
+                nodeId,
+                answerId,
+                page,
+                "Умови • " + answerId
+        );
+
+        int[] slots = createEntrySlots();
+
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                conditions.size()
+        );
+
+        for (int i = start; i < end; i++) {
+            DialogueCore.Condition condition = conditions.get(i);
+
+            holder.entries.add(condition.getId());
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.REDSTONE,
+                            condition.getType().name(),
+                            NamedTextColor.YELLOW,
+                            "Оператор: " + condition.getOperator(),
+                            "Значення: " + condition.getValue(),
+                            "ЛКМ — редагувати",
+                            "Shift + ПКМ — видалити"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                45,
+                item(
+                        Material.REPEATER,
+                        "Логіка умов",
+                        NamedTextColor.YELLOW,
+                        "Перемкнути AND / OR"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.EMERALD,
+                        "Додати умову",
+                        NamedTextColor.GREEN
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до відповіді",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
+    }
+
+    private void openConditionMenu(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String conditionId
+    ) {
+        EditorHolder holder = createHolder(
+                Screen.CONDITION_EDITOR,
+                dialogueId,
+                nodeId,
+                answerId,
+                0,
+                "Редагування умови"
+        );
+
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.COMPARATOR,
+                        "Тип умови",
+                        NamedTextColor.YELLOW,
+                        "Вибрати тип перевірки"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.REPEATER,
+                        "Оператор",
+                        NamedTextColor.YELLOW,
+                        "Рівно, більше, менше, містить тощо"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.PAPER,
+                        "Значення",
+                        NamedTextColor.YELLOW,
+                        "Задати значення умови через чат"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.LIME_DYE,
+                        "Зберегти умову",
+                        NamedTextColor.GREEN
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до умов",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // REWARD EDITOR
+    // ============================================================
+
+    private void openRewardList(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page
+    ) {
+        EditorHolder holder = createHolder(
+                Screen.REWARD_EDITOR,
+                dialogueId,
+                nodeId,
+                answerId,
+                page,
+                "Нагороди"
+        );
+
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        DialogueCore.Answer answer =
+                answerId == null ? null : node.getAnswer(answerId);
+
+        if (answer == null) {
+            openNodeMenu(player, dialogueId, nodeId);
+            return;
+        }
+
+        List<DialogueCore.Reward> rewards =
+                new ArrayList<>(answer.getRewards());
+
+        int maxPage = Math.max(
+                0,
+                (rewards.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        holder = createHolder(
+                Screen.REWARD_EDITOR,
+                dialogueId,
+                nodeId,
+                answerId,
+                page,
+                "Нагороди • " + answerId
+        );
+
+        int[] slots = createEntrySlots();
+
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                rewards.size()
+        );
+
+        for (int i = start; i < end; i++) {
+            DialogueCore.Reward reward = rewards.get(i);
+
+            holder.entries.add(String.valueOf(i));
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.CHEST,
+                            reward.getType().name(),
+                            NamedTextColor.YELLOW,
+                            "Значення: " + reward.getValue(),
+                            "Кількість: " + reward.getAmount(),
+                            "ЛКМ — редагувати",
+                            "Shift + ПКМ — видалити"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.EMERALD,
+                        "Додати нагороду",
+                        NamedTextColor.GREEN
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до відповіді",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
+    }
+
+    private void openRewardMenu(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String rewardId
+    ) {
+        EditorHolder holder = createHolder(
+                Screen.REWARD_EDITOR,
+                dialogueId,
+                nodeId,
+                answerId,
+                0,
+                "Редагування нагороди"
+        );
+
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.CHEST,
+                        "Тип нагороди",
+                        NamedTextColor.YELLOW,
+                        "Команда або предмет"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.PAPER,
+                        "Значення",
+                        NamedTextColor.YELLOW,
+                        "Задати команду або параметри предмета"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.ITEM_FRAME,
+                        "Предмет із руки",
+                        NamedTextColor.YELLOW,
+                        "Скопіювати предмет з усіма властивостями"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.LIME_DYE,
+                        "Зберегти нагороду",
+                        NamedTextColor.GREEN
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до нагород",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // SOUND PICKER
+    // ============================================================
+
+    private void openSoundPicker(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page
+    ) {
+        List<Sound> sounds = new ArrayList<>(
+                List.of(Sound.values())
+        );
+
+        sounds.sort(Comparator.comparing(Enum::name));
+
+        int maxPage = Math.max(
+                0,
+                (sounds.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
+                Screen.SOUND_PICKER,
+                dialogueId,
+                nodeId,
+                answerId,
+                page,
+                "Вибір звуку"
+        );
+
+        int[] slots = createEntrySlots();
+
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                sounds.size()
+        );
+
+        for (int i = start; i < end; i++) {
+            Sound sound = sounds.get(i);
+
+            holder.entries.add(sound.name());
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.NOTE_BLOCK,
+                            sound.name(),
+                            NamedTextColor.YELLOW,
+                            "ЛКМ — прослухати",
+                            "ПКМ — вибрати"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
+    }
+
+    // ============================================================
+    // BRANCH TARGET PICKER
+    // ============================================================
+
+    private void openBranchPicker(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page
+    ) {
+        DialogueCore.Dialogue dialogue =
+                getDialogue(dialogueId);
+
+        if (dialogue == null) {
+            openMainMenu(player);
+            return;
+        }
+
+        List<DialogueCore.Node> nodes =
+                new ArrayList<>(dialogue.getNodes());
+
+        nodes.sort(Comparator.comparing(
+                DialogueCore.Node::getId,
+                String.CASE_INSENSITIVE_ORDER
+        ));
+
+        int maxPage = Math.max(
+                0,
+                (nodes.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
+                Screen.BRANCH_PICKER,
+                dialogueId,
+                nodeId,
+                answerId,
+                page,
+                "Вибір цільової гілки"
+        );
+
+        int[] slots = createEntrySlots();
+
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                nodes.size()
+        );
+
+        for (int i = start; i < end; i++) {
+            DialogueCore.Node node = nodes.get(i);
+
+            holder.entries.add(node.getId());
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            node.getId().equalsIgnoreCase("start")
+                                    ? Material.ENCHANTED_BOOK
+                                    : Material.PAPER,
+                            node.getId(),
+                            NamedTextColor.YELLOW,
+                            "ЛКМ — вибрати ціль"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
+    }
+    // ============================================================
+    // CHAT INPUT
+    // ============================================================
+
+    private void requestChatInput(
+            Player player,
+            String prompt,
+            Consumer<String> handler
+    ) {
+        requestChatInput(player, prompt, handler, () -> {});
+    }
+
+    private void requestChatInput(
+            Player player,
+            String prompt,
+            Consumer<String> handler,
+            Runnable cancel
+    ) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        chatPrompts.put(
+                player.getUniqueId(),
+                new ChatPrompt(handler, cancel)
+        );
+
+        player.closeInventory();
+
+        player.sendMessage(
+                PREFIX.append(Component.text(
+                        " " + prompt,
+                        NamedTextColor.YELLOW
+                ))
+        );
+
+        player.sendMessage(
+                Component.text(
+                        "Введи cancel для скасування.",
+                        NamedTextColor.GRAY
+                )
         );
     }
 
-    /*
-     * ============================================================
-     * MAIN MENU CLICK HANDLER
-     * ============================================================
-     */
+    @EventHandler
+    public void onChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+
+        ChatPrompt prompt = chatPrompts.get(
+                player.getUniqueId()
+        );
+
+        if (prompt == null) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        String message = PlainTextComponentSerializer
+                .plainText()
+                .serialize(event.message())
+                .trim();
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            ChatPrompt current = chatPrompts.remove(
+                    player.getUniqueId()
+            );
+
+            if (current == null || !player.isOnline()) {
+                return;
+            }
+
+            if (message.equalsIgnoreCase("cancel")) {
+                current.cancel().run();
+
+                player.sendMessage(
+                        PREFIX.append(Component.text(
+                                " Введення скасовано.",
+                                NamedTextColor.RED
+                        ))
+                );
+
+                return;
+            }
+
+            if (message.isBlank()) {
+                player.sendMessage(
+                        PREFIX.append(Component.text(
+                                " Порожнє значення не допускається.",
+                                NamedTextColor.RED
+                        ))
+                );
+
+                chatPrompts.put(
+                        player.getUniqueId(),
+                        current
+                );
+
+                return;
+            }
+
+            current.handler().accept(message);
+        });
+    }
+
+    private void clearChatPrompt(Player player) {
+        if (player != null) {
+            chatPrompts.remove(player.getUniqueId());
+        }
+    }
+
+    // ============================================================
+    // INVENTORY EVENTS
+    // ============================================================
 
     @EventHandler
-    public void onInventoryClick(
-            InventoryClickEvent event
-    ) {
+    public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
@@ -423,7 +1981,8 @@ public final class DialogueEditor implements Listener {
 
         event.setCancelled(true);
 
-        if (event.getClickedInventory() != top) {
+        if (event.getClickedInventory() == null
+                || event.getClickedInventory() != top) {
             return;
         }
 
@@ -433,1468 +1992,467 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (holder.screen != Screen.MAIN) {
-            handleOtherScreenClick(
-                    player,
-                    holder,
-                    slot,
-                    event.getClick()
-            );
-            return;
-        }
-
-        handleMainMenuClick(
-                player,
-                holder,
-                slot
-        );
-    }
-
-    private void handleMainMenuClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-
-        if (slot == 45) {
-            openMainMenu(
-                    player,
-                    Math.max(0, holder.page - 1)
-            );
-            return;
-        }
-
-        if (slot == 53) {
-            openMainMenu(
-                    player,
-                    holder.page + 1
-            );
-            return;
-        }
-
-        if (slot == 49) {
-            requestDialogueName(player);
-            return;
-        }
-
-        int[] slots = createEntrySlots();
-
-        for (int i = 0; i < slots.length; i++) {
-
-            if (slots[i] != slot) {
-                continue;
-            }
-
-            if (i >= holder.entries.size()) {
-                return;
-            }
-
-            String dialogueId = holder.entries.get(i);
-
-            openDialogueMenu(
-                    player,
-                    dialogueId,
-                    0
-            );
-
-            return;
-        }
-    }
-
-    /*
-     * ============================================================
-     * CHAT INPUT
-     * ============================================================
-     */
-
-    private void requestDialogueName(Player player) {
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи назву нового діалогу в чаті.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        player.sendMessage(
-                Component.text(
-                        "Введи cancel, щоб скасувати.",
-                        NamedTextColor.GRAY
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        name -> createDialogueFromInput(
-                                player,
-                                name
-                        ),
-                        () -> openMainMenu(player, 0)
-                )
-        );
+        handleClick(player, holder, slot, event.getClick());
     }
 
     @EventHandler
-    public void onAsyncChat(AsyncChatEvent event) {
-
-        Player player = event.getPlayer();
-
-        ChatPrompt prompt = chatPrompts.remove(
-                player.getUniqueId()
-        );
-
-        if (prompt == null) {
-            return;
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (event.getView().getTopInventory().getHolder()
+                instanceof EditorHolder) {
+            event.setCancelled(true);
         }
-
-        event.setCancelled(true);
-
-        String message =
-                PlainTextComponentSerializer.plainText()
-                        .serialize(event.message())
-                        .trim();
-
-        Bukkit.getScheduler().runTask(
-                plugin,
-                () -> {
-
-                    if (!player.isOnline()) {
-                        return;
-                    }
-
-                    if (message.equalsIgnoreCase("cancel")) {
-                        prompt.cancel().run();
-                        return;
-                    }
-
-                    prompt.handler().accept(message);
-                }
-        );
     }
 
-    private void createDialogueFromInput(
-            Player player,
-            String name
-    ) {
-
-        if (name == null || name.isBlank()) {
-            player.sendMessage(
-                    Component.text(
-                            "Назва не може бути порожньою.",
-                            NamedTextColor.RED
-                    )
-            );
-
-            openMainMenu(player, 0);
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
             return;
         }
 
-        if (!name.matches("[a-zA-Z0-9_-]{1,48}")) {
-            player.sendMessage(
-                    Component.text(
-                            "Дозволені лише латинські літери, цифри, "
-                                    + "_ та -.",
-                            NamedTextColor.RED
-                    )
-            );
-
-            openMainMenu(player, 0);
-            return;
+        if (event.getInventory().getHolder()
+                instanceof EditorHolder) {
+            clearChatPrompt(player);
         }
-
-        boolean created = core.createDialogue(
-                name,
-                null
-        );
-
-        if (!created) {
-            player.sendMessage(
-                    Component.text(
-                            "Не вдалося створити діалог. "
-                                    + "Можливо, така назва вже існує.",
-                            NamedTextColor.RED
-                    )
-            );
-
-            openMainMenu(player, 0);
-            return;
-        }
-
-        player.sendMessage(
-                Component.text(
-                        "Діалог " + name + " створено.",
-                        NamedTextColor.GREEN
-                )
-        );
-
-        openNodeMenu(
-                player,
-                name,
-                "start"
-        );
     }
 
-    /*
-     * ============================================================
-     * OTHER SCREEN ROUTING
-     * ============================================================
-     */
+    // ============================================================
+    // CLICK ROUTER
+    // ============================================================
 
-    private void handleOtherScreenClick(
+    private void handleClick(
             Player player,
             EditorHolder holder,
             int slot,
             ClickType click
     ) {
-        // Реалізація меню вузлів, відповідей і налаштувань
-        // буде додана в наступних частинах файлу.
-  }
-  
-    /*
-     * ============================================================
-     * DIALOGUE MENU
-     * ============================================================
-     */
-
-    private void openDialogueMenu(
-            Player player,
-            String dialogueId,
-            int page
-    ) {
-        DialogueCore.Dialogue dialogue =
-                core.getDialogue(dialogueId);
-
-        if (dialogue == null) {
-            player.sendMessage(
-                    Component.text(
-                            "Діалог не знайдено.",
-                            NamedTextColor.RED
-                    )
+        switch (holder.screen) {
+            case MAIN -> handleMainClick(
+                    player, holder, slot, click
             );
 
-            openMainMenu(player, 0);
-            return;
-        }
-
-        List<String> nodeIds = new ArrayList<>(
-                dialogue.getNodes().keySet()
-        );
-
-        int maxPage = Math.max(
-                0,
-                (nodeIds.size() - 1) / ENTRIES_PER_PAGE
-        );
-
-        page = Math.max(0, Math.min(page, maxPage));
-
-        EditorHolder holder = new EditorHolder(
-                Screen.DIALOGUE,
-                dialogueId,
-                null,
-                null,
-                page
-        );
-
-        holder.inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text(
-                        "Діалог • " + dialogueId,
-                        NamedTextColor.DARK_RED
-                )
-        );
-
-        fillBackground(holder.inventory);
-
-        int start = page * ENTRIES_PER_PAGE;
-        int end = Math.min(
-                start + ENTRIES_PER_PAGE,
-                nodeIds.size()
-        );
-
-        int[] slots = createEntrySlots();
-
-        for (int i = start; i < end; i++) {
-
-            String nodeId = nodeIds.get(i);
-
-            holder.entries.add(nodeId);
-
-            boolean root = i == 0;
-
-            Material icon = root
-                    ? Material.BOOK
-                    : Material.PAPER;
-
-            Component title = Component.text(
-                    nodeId,
-                    root
-                            ? NamedTextColor.GOLD
-                            : NamedTextColor.WHITE
+            case DIALOGUE -> handleDialogueClick(
+                    player, holder, slot, click
             );
 
-            holder.inventory.setItem(
-                    slots[i - start],
-                    createItem(
-                            icon,
-                            title,
-                            List.of(
-                                    Component.text(
-                                            root
-                                                    ? "Головна гілка"
-                                                    : "Дочірня гілка",
-                                            NamedTextColor.GRAY
-                                    ),
-                                    Component.text(
-                                            " ",
-                                            NamedTextColor.GRAY
-                                    ),
-                                    Component.text(
-                                            "Натисни, щоб редагувати",
-                                            NamedTextColor.YELLOW
-                                    )
-                            )
-                    )
+            case NODES -> handleNodeListClick(
+                    player, holder, slot, click
+            );
+
+            case NODE -> handleNodeClick(
+                    player, holder, slot, click
+            );
+
+            case ANSWER -> handleAnswerClick(
+                    player, holder, slot, click
+            );
+
+            case SETTINGS -> handleSettingsClick(
+                    player, holder, slot, click
+            );
+
+            case SOUND_PICKER -> handleSoundClick(
+                    player, holder, slot, click
+            );
+
+            case CONDITION_EDITOR -> handleConditionClick(
+                    player, holder, slot, click
+            );
+
+            case REWARD_EDITOR -> handleRewardClick(
+                    player, holder, slot, click
+            );
+
+            case BRANCH_PICKER -> handleBranchPickerClick(
+                    player, holder, slot, click
             );
         }
-
-
-        holder.inventory.setItem(
-                0,
-                createItem(
-                        Material.WRITABLE_BOOK,
-                        Component.text(
-                                "Створити гілку",
-                                NamedTextColor.GREEN
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Створити нову гілку діалогу",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                4,
-                createItem(
-                        Material.WRITABLE_BOOK,
-                        Component.text(
-                                "Налаштування діалогу",
-                                NamedTextColor.LIGHT_PURPLE
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Загальні параметри діалогу",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Камера, текст, звук та інше",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        Component.text(
-                                "Назад",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "До списку діалогів",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                53,
-                createItem(
-                        Material.ARROW,
-                        Component.text(
-                                "Наступна сторінка",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Сторінка " + (page + 1),
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                53,
-                createItem(
-                        Material.ARROW,
-                        Component.text(
-                                "Наступна сторінка",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Сторінка " + (page + 1),
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        player.openInventory(holder.inventory);
-        playGuiSound(player, Sound.UI_BUTTON_CLICK);
     }
 
-    /*
-     * ============================================================
-     * DIALOGUE MENU CLICK
-     * ============================================================
-     */
+    private boolean isLeft(ClickType click) {
+        return click == ClickType.LEFT;
+    }
 
-    private void handleDialogueMenuClick(
-            Player player,
+    private boolean isRight(ClickType click) {
+        return click == ClickType.RIGHT;
+    }
+
+    private boolean isShiftLeft(ClickType click) {
+        return click == ClickType.SHIFT_LEFT;
+    }
+
+    private boolean isShiftRight(ClickType click) {
+        return click == ClickType.SHIFT_RIGHT;
+    }
+
+    private boolean isPlainClick(ClickType click) {
+        return isLeft(click) || isRight(click);
+    }
+
+    private String entryAt(
             EditorHolder holder,
             int slot
     ) {
-
-        if (slot == 45) {
-            openMainMenu(player, 0);
-            return;
-        }
-
-        if (slot == 0) {
-            requestNodeName(
-                    player,
-                    holder.dialogueId,
-                    holder.page
-            );
-            return;
-        }
-
-        if (slot == 4) {
-            openSettingsMenu(
-                    player,
-                    holder.dialogueId
-            );
-            return;
-        }
-
-        if (slot == 53) {
-            openDialogueMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.page + 1
-            );
-            return;
-        }
-
         int[] slots = createEntrySlots();
 
         for (int i = 0; i < slots.length; i++) {
-
-            if (slots[i] != slot) {
-                continue;
-            }
-
-            if (i >= holder.entries.size()) {
-                return;
-            }
-
-            String nodeId = holder.entries.get(i);
-
-            openNodeMenu(
-                    player,
-                    holder.dialogueId,
-                    nodeId
-            );
-
-            return;
-        }
-    }
-
-    /*
-     * ============================================================
-     * CREATE NODE
-     * ============================================================
-     */
-
-    private void requestNodeName(
-            Player player,
-            String dialogueId,
-            int page
-    ) {
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи назву нової гілки.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        player.sendMessage(
-                Component.text(
-                        "Введи cancel для скасування.",
-                        NamedTextColor.GRAY
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        name -> createNodeFromInput(
-                                player,
-                                dialogueId,
-                                page,
-                                name
-                        ),
-                        () -> openDialogueMenu(
-                                player,
-                                dialogueId,
-                                page
-                        )
-                )
-        );
-    }
-
-    private void createNodeFromInput(
-            Player player,
-            String dialogueId,
-            int page,
-            String nodeId
-    ) {
-        if (nodeId == null || nodeId.isBlank()) {
-            player.sendMessage(
-                    Component.text(
-                            "Назва гілки не може бути порожньою.",
-                            NamedTextColor.RED
-                    )
-            );
-
-            openDialogueMenu(player, dialogueId, page);
-            return;
-        }
-
-        if (!nodeId.matches("[a-zA-Z0-9_-]{1,48}")) {
-            player.sendMessage(
-                    Component.text(
-                            "Використовуй латинські літери, цифри, _ або -.",
-                            NamedTextColor.RED
-                    )
-            );
-
-            openDialogueMenu(player, dialogueId, page);
-            return;
-        }
-
-        boolean created = core.createNode(
-                dialogueId,
-                nodeId
-        );
-
-        if (!created) {
-            player.sendMessage(
-                    Component.text(
-                            "Не вдалося створити гілку. "
-                                    + "Перевір, чи така назва вже існує.",
-                            NamedTextColor.RED
-                    )
-            );
-
-            openDialogueMenu(player, dialogueId, page);
-            return;
-        }
-
-        player.sendMessage(
-                Component.text(
-                        "Гілку " + nodeId + " створено.",
-                        NamedTextColor.GREEN
-                )
-        );
-
-        openNodeMenu(
-                player,
-                dialogueId,
-                nodeId
-        );
-    }
-
-    /*
-     * ============================================================
-     * NODE MENU
-     * ============================================================
-     */
-
-    private void openNodeMenu(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        DialogueCore.Dialogue dialogue =
-                core.getDialogue(dialogueId);
-
-        if (dialogue == null) {
-            openMainMenu(player, 0);
-            return;
-        }
-
-        DialogueCore.Node node =
-                dialogue.getNode(nodeId);
-
-        if (node == null) {
-            openDialogueMenu(player, dialogueId, 0);
-            return;
-        }
-
-        EditorHolder holder = new EditorHolder(
-                Screen.NODE,
-                dialogueId,
-                nodeId,
-                null,
-                0
-        );
-
-        holder.inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text(
-                        "Гілка • " + nodeId,
-                        NamedTextColor.DARK_RED
-                )
-        );
-
-        fillBackground(holder.inventory);
-
-        holder.inventory.setItem(
-                4,
-                createItem(
-                        Material.WRITABLE_BOOK,
-                        Component.text(
-                                nodeId,
-                                NamedTextColor.GOLD
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Редагування гілки",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Відповідей: "
-                                                + node.getAnswers().size(),
-                                        NamedTextColor.YELLOW
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                20,
-                createItem(
-                        Material.PAPER,
-                        Component.text(
-                                "Текст персонажа",
-                                NamedTextColor.WHITE
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Змінити текст цієї гілки",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Натисни для введення тексту в чаті",
-                                        NamedTextColor.YELLOW
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                22,
-                createItem(
-                        Material.CLOCK,
-                        Component.text(
-                                "Швидкість друку",
-                                NamedTextColor.AQUA
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Налаштування затримки між літерами",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                24,
-                createItem(
-                        Material.COMPASS,
-                        Component.text(
-                                "Наступна гілка",
-                                NamedTextColor.LIGHT_PURPLE
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Перехід після завершення тексту",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                29,
-                createItem(
-                        Material.WRITABLE_BOOK,
-                        Component.text(
-                                "Додати відповідь",
-                                NamedTextColor.GREEN
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Створити новий варіант відповіді",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                31,
-                createItem(
-                        Material.BOOK,
-                        Component.text(
-                                "Список відповідей",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Переглянути та редагувати відповіді",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Кількість: "
-                                                + node.getAnswers().size(),
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                33,
-                createItem(
-                        Material.REDSTONE,
-                        Component.text(
-                                "Видалити гілку",
-                                NamedTextColor.RED
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Видалити цю гілку діалогу",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Цю дію потрібно підтвердити",
-                                        NamedTextColor.RED
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        Component.text(
-                                "Назад",
-                                NamedTextColor.YELLOW
-                        ),
-                        List.of(
-                                Component.text(
-                                        "До списку гілок",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        player.openInventory(holder.inventory);
-        playGuiSound(player, Sound.UI_BUTTON_CLICK);
-    }
-
-    /*
-     * ============================================================
-     * NODE MENU CLICK
-     * ============================================================
-     */
-
-    private void handleNodeMenuClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        String dialogueId = holder.dialogueId;
-        String nodeId = holder.nodeId;
-
-        if (slot == 45) {
-            openDialogueMenu(player, dialogueId, 0);
-            return;
-        }
-
-        if (slot == 20) {
-            requestNodeText(
-                    player,
-                    dialogueId,
-                    nodeId
-            );
-            return;
-        }
-
-        if (slot == 22) {
-            requestNodeDelay(
-                    player,
-                    dialogueId,
-                    nodeId
-            );
-            return;
-        }
-
-        if (slot == 24) {
-            requestNodeNext(
-                    player,
-                    dialogueId,
-                    nodeId
-            );
-            return;
-        }
-
-        if (slot == 29) {
-            requestAnswerName(
-                    player,
-                    dialogueId,
-                    nodeId
-            );
-            return;
-        }
-
-        if (slot == 31) {
-            openAnswersMenu(
-                    player,
-                    dialogueId,
-                    nodeId,
-                    0
-            );
-            return;
-        }
-
-        if (slot == 33) {
-            requestNodeDelete(
-                    player,
-                    dialogueId,
-                    nodeId
-            );
-        }
-    }
-
-    /*
-     * ============================================================
-     * NODE TEXT INPUT
-     * ============================================================
-     */
-
-    private void requestNodeText(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи новий текст персонажа.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        player.sendMessage(
-                Component.text(
-                        "Використовуй cancel для скасування.",
-                        NamedTextColor.GRAY
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        text -> {
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                return;
-                            }
-
-                            node.setText(text);
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Текст гілки оновлено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-                        },
-                        () -> openNodeMenu(
-                                player,
-                                dialogueId,
-                                nodeId
-                        )
-                )
-        );
-    }
-
-    /*
-     * ============================================================
-     * NODE DELAY INPUT
-     * ============================================================
-     */
-
-    private void requestNodeDelay(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи затримку між літерами в тіках.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        player.sendMessage(
-                Component.text(
-                        "Наприклад: 2. Мінімум 0, максимум 100.",
-                        NamedTextColor.GRAY
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            try {
-                                int delay = Integer.parseInt(value);
-
-                                if (delay < 0 || delay > 100) {
-                                    throw new NumberFormatException();
-                                }
-
-                                DialogueCore.Dialogue dialogue =
-                                        core.getDialogue(dialogueId);
-
-                                if (dialogue == null) {
-                                    return;
-                                }
-
-                                DialogueCore.Node node =
-                                        dialogue.getNode(nodeId);
-
-                                if (node == null) {
-                                    return;
-                                }
-
-                                node.setDelay(delay);
-                                core.saveDialogue(dialogueId);
-
-                                player.sendMessage(
-                                        Component.text(
-                                                "Швидкість друку оновлено.",
-                                                NamedTextColor.GREEN
-                                        )
-                                );
-
-                            } catch (NumberFormatException exception) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Введи ціле число від 0 до 100.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
-                        },
-                        () -> openNodeMenu(
-                                player,
-                                dialogueId,
-                                nodeId
-                        )
-                )
-        );
-    }
-
-    /*
-     * ============================================================
-     * NODE NEXT INPUT
-     * ============================================================
-     */
-
-    private void requestNodeNext(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи ID наступної гілки.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        player.sendMessage(
-                Component.text(
-                        "Введи none, щоб завершувати діалог після цієї гілки.",
-                        NamedTextColor.GRAY
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                return;
-                            }
-
-                            if (value.equalsIgnoreCase("none")) {
-                                node.setNextNode(null);
-                            } else {
-                                if (dialogue.getNode(value) == null) {
-                                    player.sendMessage(
-                                            Component.text(
-                                                    "Гілки з таким ID не існує.",
-                                                    NamedTextColor.RED
-                                            )
-                                    );
-                                    return;
-                                }
-
-                                node.setNextNode(value);
-                            }
-
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Перехід гілки оновлено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-                        },
-                        () -> openNodeMenu(
-                                player,
-                                dialogueId,
-                                nodeId
-                        )
-                )
-        );
-    }
-
-    /*
-     * ============================================================
-     * CREATE ANSWER
-     * ============================================================
-     */
-
-    private void requestAnswerName(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи текст нової відповіді.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        text -> {
-                            if (text.isBlank()) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Текст відповіді не може бути порожнім.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                                return;
-                            }
-
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                return;
-                            }
-
-                            String answerId =
-                                    "answer_" + (node.getAnswers().size() + 1);
-
-                            node.addAnswer(
-                                    new DialogueCore.Answer(
-                                            answerId,
-                                            text
-                                    )
-                            );
-
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Відповідь створено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-
-                            openAnswersMenu(
-                                    player,
-                                    dialogueId,
-                                    nodeId,
-                                    0
-                            );
-                        },
-                        () -> openNodeMenu(
-                                player,
-                                dialogueId,
-                                nodeId
-                        )
-                )
-        );
-    }
-
-    /*
-     * ============================================================
-     * DELETE NODE
-     * ============================================================
-     */
-
-    private void requestNodeDelete(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Для підтвердження видалення введи DELETE.",
-                        NamedTextColor.RED
-                )
-        );
-
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            if (!value.equals("DELETE")) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Видалення скасовано.",
-                                        NamedTextColor.YELLOW
-                                        )
-                                );
-                                openNodeMenu(player, dialogueId, nodeId);
-                                return;
-                            }
-
-                            if (core.deleteNode(dialogueId, nodeId)) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Гілку успішно видалено.",
-                                                NamedTextColor.GREEN
-                                        )
-                                );
-                                openDialogueMenu(player, dialogueId, 0);
-                            } else {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Не вдалося видалити гілку.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                                openDialogueMenu(player, dialogueId, 0);
-                            }
-                        },
-                        "Введи DELETE у чат, щоб підтвердити видалення гілки."
-                )
-        );
-        player.closeInventory();
-        player.sendMessage(
-                Component.text(
-                        "Для підтвердження видалення введи DELETE. Інший текст скасує операцію.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void openAnswerMenu(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
-
-        if (dialogue == null) {
-            player.sendMessage(
-                    Component.text("Діалог не знайдено.", NamedTextColor.RED)
-            );
-            openMainMenu(player, 0);
-            return;
-        }
-
-        DialogueCore.Node node = dialogue.getNode(nodeId);
-
-        if (node == null) {
-            player.sendMessage(
-                    Component.text("Гілку не знайдено.", NamedTextColor.RED)
-            );
-            openDialogueMenu(player, dialogueId, 0);
-            return;
-        }
-
-        DialogueCore.Answer answer = findAnswer(node, answerId);
-
-        if (answer == null) {
-            player.sendMessage(
-                    Component.text("Відповідь не знайдено.", NamedTextColor.RED)
-            );
-            openNodeMenu(player, dialogueId, nodeId);
-            return;
-        }
-
-        EditorHolder holder = new EditorHolder(
-                Screen.ANSWER,
-                dialogueId,
-                nodeId,
-                answerId,
-                0,
-                new ArrayList<>()
-        );
-
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Редагування відповіді")
-        );
-
-        holder.inventory = inventory;
-        fillBackground(inventory);
-
-        inventory.setItem(
-                10,
-                createItem(
-                        Material.NAME_TAG,
-                        "§eТекст відповіді",
-                        List.of(
-                                "§7Поточний текст:",
-                                "§f" + answer.getText(),
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                12,
-                createItem(
-                        Material.PAPER,
-                        "§eПерехід до гілки",
-                        List.of(
-                                "§7Поточна гілка:",
-                                "§f" + (
-                                        answer.getTargetNode() == null
-                                                || answer.getTargetNode().isBlank()
-                                                ? "Не задано"
-                                                : answer.getTargetNode()
-                                ),
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                14,
-                createItem(
-                        answer.isEnabled()
-                                ? Material.LIME_DYE
-                                : Material.GRAY_DYE,
-                        "§eДоступність відповіді",
-                        List.of(
-                                "§7Статус: " + (
-                                        answer.isEnabled()
-                                                ? "§aУвімкнена"
-                                                : "§cВимкнена"
-                                ),
-                                "",
-                                "§aНатисни, щоб перемкнути"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                16,
-                createItem(
-                        Material.NOTE_BLOCK,
-                        "§eЗвук відповіді",
-                        List.of(
-                                "§7Поточний звук:",
-                                "§f" + (
-                                        answer.getSound() == null
-                                                || answer.getSound().isBlank()
-                                                ? "Не задано"
-                                                : answer.getSound()
-                                ),
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                29,
-                createItem(
-                        Material.COMMAND_BLOCK,
-                        "§eКоманди відповіді",
-                        List.of(
-                                "§7Налаштування команд,",
-                                "§7які виконуються після вибору.",
-                                "",
-                                "§aНатисни, щоб редагувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                31,
-                createItem(
-                        Material.COMPARATOR,
-                        "§eУмови відповіді",
-                        List.of(
-                                "§7Визначають, коли відповідь",
-                                "§7доступна гравцеві.",
-                                "",
-                                "§aНатисни, щоб редагувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                33,
-                createItem(
-                        Material.CHEST,
-                        "§eНагороди відповіді",
-                        List.of(
-                                "§7Нагороди після вибору",
-                                "§7цієї відповіді.",
-                                "",
-                                "§aНатисни, щоб редагувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до гілки")
-                )
-        );
-
-        player.openInventory(inventory);
-    }
-
-    private DialogueCore.Answer findAnswer(
-            DialogueCore.Node node,
-            String answerId
-    ) {
-        for (DialogueCore.Answer answer : node.getAnswers()) {
-            if (answer.getId().equalsIgnoreCase(answerId)) {
-                return answer;
+            if (slots[i] == slot) {
+                return i < holder.entries.size()
+                        ? holder.entries.get(i)
+                        : null;
             }
         }
 
         return null;
     }
 
-    private void handleAnswerMenuClick(
+    private void playClickSound(Player player) {
+        player.playSound(
+                player.getLocation(),
+                Sound.UI_BUTTON_CLICK,
+                0.5f,
+                1.2f
+        );
+    }
+
+    private void handleMainClick(
             Player player,
             EditorHolder holder,
-            int slot
+            int slot,
+            ClickType click
     ) {
-        DialogueCore.Dialogue dialogue =
-                core.getDialogue(holder.dialogueId);
-
-        if (dialogue == null) {
-            openMainMenu(player, 0);
+        if (slot == SLOT_CREATE && isLeft(click)) {
+            requestChatInput(
+                    player,
+                    "Введи назву нового діалогу:",
+                    name -> createDialogue(player, name)
+            );
             return;
         }
 
-        DialogueCore.Node node = dialogue.getNode(holder.nodeId);
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            openMainMenu(player, holder.page - 1);
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openMainMenu(player, holder.page + 1);
+            return;
+        }
+
+        String dialogueId = entryAt(holder, slot);
+
+        if (dialogueId == null) {
+            return;
+        }
+
+        if (isLeft(click)) {
+            openDialogueMenu(player, dialogueId);
+        } else if (isRight(click)) {
+            requestRenameDialogue(player, dialogueId);
+        } else if (isShiftRight(click)) {
+            confirmDeleteDialogue(player, dialogueId);
+        }
+    }
+
+    private void handleDialogueClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            openMainMenu(player);
+            return;
+        }
+
+        if (!isLeft(click)) {
+            return;
+        }
+
+        switch (slot) {
+            case 10 -> openNodeList(
+                    player, holder.dialogueId, 0
+            );
+
+            case 12 -> openDialogueSettings(
+                    player, holder.dialogueId
+            );
+
+            case 14 -> requestRenameDialogue(
+                    player, holder.dialogueId
+            );
+
+            case 16 -> confirmDeleteDialogue(
+                    player, holder.dialogueId
+            );
+
+            default -> {
+            }
+        }
+    }
+
+    private void handleNodeListClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            openDialogueMenu(player, holder.dialogueId);
+            return;
+        }
+
+        if (slot == SLOT_CREATE && isLeft(click)) {
+            requestChatInput(
+                    player,
+                    "Введи назву нової гілки:",
+                    name -> createBranch(
+                            player,
+                            holder.dialogueId,
+                            name
+                    )
+            );
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            openNodeList(
+                    player,
+                    holder.dialogueId,
+                    holder.page - 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openNodeList(
+                    player,
+                    holder.dialogueId,
+                    holder.page + 1
+            );
+            return;
+        }
+
+        String nodeId = entryAt(holder, slot);
+
+        if (nodeId == null) {
+            return;
+        }
+
+        if (isLeft(click)) {
+            openNodeMenu(
+                    player, holder.dialogueId, nodeId
+            );
+        } else if (isRight(click)) {
+            requestRenameBranch(
+                    player, holder.dialogueId, nodeId
+            );
+        } else if (isShiftRight(click)
+                && !nodeId.equalsIgnoreCase("start")) {
+            confirmDeleteBranch(
+                    player, holder.dialogueId, nodeId
+            );
+        }
+    }
+    // ============================================================
+    // BRANCH CLICK HANDLER
+    // ============================================================
+
+    private void handleNodeClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            openNodeList(
+                    player, holder.dialogueId, 0
+            );
+            return;
+        }
+
+        if (!isLeft(click)) {
+            return;
+        }
+
+        switch (slot) {
+            case 10 -> requestBranchText(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 12 -> requestBranchDelay(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 14 -> openAnswerList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    0
+            );
+
+            case 16 -> openBranchSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 28 -> requestRenameBranch(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 30 -> {
+                if (!holder.nodeId.equalsIgnoreCase("start")) {
+                    confirmDeleteBranch(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
+
+            default -> {
+            }
+        }
+    }
+
+    // ============================================================
+    // ANSWER CLICK HANDLER
+    // ============================================================
+
+    private void handleAnswerClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            if (holder.answerId == null) {
+                openNodeMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            } else {
+                openAnswerList(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        0
+                );
+            }
+            return;
+        }
+
+        if (holder.answerId == null) {
+            handleAnswerListClick(
+                    player, holder, slot, click
+            );
+            return;
+        }
+
+        handleAnswerEditorClick(
+                player, holder, slot, click
+        );
+    }
+
+    private void handleAnswerListClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_CREATE && isLeft(click)) {
+            createAnswer(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            openAnswerList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page - 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openAnswerList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page + 1
+            );
+            return;
+        }
+
+        String answerId = entryAt(holder, slot);
+
+        if (answerId == null) {
+            return;
+        }
+
+        DialogueCore.Node node = getNode(
+                holder.dialogueId,
+                holder.nodeId
+        );
 
         if (node == null) {
-            openDialogueMenu(player, holder.dialogueId, 0);
             return;
         }
 
         DialogueCore.Answer answer =
-                findAnswer(node, holder.answerId);
+                node.getAnswer(answerId);
 
         if (answer == null) {
-            openNodeMenu(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (isLeft(click)) {
+            openAnswerMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    answerId
+            );
+        } else if (isRight(click)) {
+            answer.setEnabled(!answer.isEnabled());
+            save(holder.dialogueId);
+
+            openAnswerList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page
+            );
+        } else if (isShiftRight(click)) {
+            confirmDeleteAnswer(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    answerId
+            );
+        }
+    }
+
+    private void handleAnswerEditorClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (!isLeft(click)) {
             return;
         }
 
@@ -1906,16 +2464,64 @@ public final class DialogueEditor implements Listener {
                     holder.answerId
             );
 
-            case 12 -> requestAnswerTarget(
+            case 12 -> openBranchPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    0
+            );
+
+            case 14 -> openConditionList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    0
+            );
+
+            case 16 -> openCommandSettings(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId
             );
 
-            case 14 -> {
+            case 28 -> openRewardList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    0
+            );
+
+            case 30 -> openSoundPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    0
+            );
+
+            case 32 -> {
+                DialogueCore.Node node = getNode(
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+
+                if (node == null) {
+                    return;
+                }
+
+                DialogueCore.Answer answer =
+                        node.getAnswer(holder.answerId);
+
+                if (answer == null) {
+                    return;
+                }
+
                 answer.setEnabled(!answer.isEnabled());
-                core.saveDialogue(holder.dialogueId);
+                save(holder.dialogueId);
 
                 openAnswerMenu(
                         player,
@@ -1925,39 +2531,11 @@ public final class DialogueEditor implements Listener {
                 );
             }
 
-            case 16 -> openSoundPicker(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId,
-                    0
-            );
-
-            case 29 -> requestAnswerCommands(
+            case 50 -> confirmDeleteAnswer(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId
-            );
-
-            case 31 -> openConditionEditor(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId
-            );
-
-            case 33 -> openRewardEditor(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId
-            );
-
-            case 45 -> openNodeMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId
             );
 
             default -> {
@@ -1965,782 +2543,226 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void requestAnswerText(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                return;
-                            }
-
-                            DialogueCore.Answer answer =
-                                    findAnswer(node, answerId);
-
-                            if (answer == null) {
-                                return;
-                            }
-
-                            answer.setText(value);
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Текст відповіді оновлено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-
-                            openAnswerMenu(
-                                    player,
-                                    dialogueId,
-                                    nodeId,
-                                    answerId
-                            );
-                        },
-                        "Введи новий текст відповіді в чат."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи новий текст відповіді в чат.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void requestAnswerTarget(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                return;
-                            }
-
-                            DialogueCore.Answer answer =
-                                    findAnswer(node, answerId);
-
-                            if (answer == null) {
-                                return;
-                            }
-
-                            if (!value.equalsIgnoreCase("none")
-                                    && dialogue.getNode(value) == null) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Такої гілки не існує. "
-                                                        + "Перевір її ID або введи none.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-
-                                openAnswerMenu(
-                                        player,
-                                        dialogueId,
-                                        nodeId,
-                                        answerId
-                                );
-                                return;
-                            }
-
-                            answer.setTargetNode(
-                                    value.equalsIgnoreCase("none")
-                                            ? null
-                                            : value
-                            );
-
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Перехід відповіді оновлено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-
-                            openAnswerMenu(
-                                    player,
-                                    dialogueId,
-                                    nodeId,
-                                    answerId
-                            );
-                        },
-                        "Введи ID цільової гілки або none, щоб прибрати перехід."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи ID гілки, до якої веде відповідь. "
-                                + "Введи none, якщо переходу не повинно бути.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void requestAnswerCommands(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                return;
-                            }
-
-                            DialogueCore.Answer answer =
-                                    findAnswer(node, answerId);
-
-                            if (answer == null) {
-                                return;
-                            }
-
-                            List<String> commands = new ArrayList<>();
-
-                            if (!value.equalsIgnoreCase("none")) {
-                                for (String command : value.split("\\|")) {
-                                    String trimmed = command.trim();
-
-                                    if (!trimmed.isEmpty()) {
-                                        commands.add(trimmed);
-                                    }
-                                }
-                            }
-
-                            answer.setCommands(commands);
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Команди відповіді збережено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-
-                            openAnswerMenu(
-                                    player,
-                                    dialogueId,
-                                    nodeId,
-                                    answerId
-                            );
-                        },
-                        "Введи команди через | або none, щоб очистити список."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи команди через символ |. "
-                                + "Наприклад: say Привіт|give %player% bread 1. "
-                                + "Введи none, щоб очистити команди.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void requestNewAnswer(
-            Player player,
-            String dialogueId,
-            String nodeId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            String answerId = value
-                                    .trim()
-                                    .toLowerCase(Locale.ROOT)
-                                    .replaceAll("[^a-z0-9_-]", "_");
-
-                            if (answerId.isBlank()) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "ID відповіді не може бути порожнім.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                                openNodeMenu(player, dialogueId, nodeId);
-                                return;
-                            }
-
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
-
-                            if (dialogue == null) {
-                                openMainMenu(player, 0);
-                                return;
-                            }
-
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                openDialogueMenu(player, dialogueId, 0);
-                                return;
-                            }
-
-                            if (findAnswer(node, answerId) != null) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Відповідь із таким ID уже існує.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                                openNodeMenu(player, dialogueId, nodeId);
-                                return;
-                            }
-
-                            DialogueCore.Answer answer =
-                                    new DialogueCore.Answer(
-                                            answerId,
-                                            value.trim()
-                                    );
-
-                            node.addAnswer(answer);
-                            core.saveDialogue(dialogueId);
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Відповідь створено.",
-                                            NamedTextColor.GREEN
-                                    )
-                            );
-
-                            openAnswerMenu(
-                                    player,
-                                    dialogueId,
-                                    nodeId,
-                                    answerId
-                            );
-                        },
-                        "Введи ID нової відповіді."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи ID нової відповіді. "
-                                + "Використовуй латинські літери, цифри, _ або -.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void openAnswerList(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            int page
-    ) {
-        DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
-
-        if (dialogue == null) {
-            openMainMenu(player, 0);
-            return;
-        }
-
-        DialogueCore.Node node = dialogue.getNode(nodeId);
-
-        if (node == null) {
-            openDialogueMenu(player, dialogueId, 0);
-            return;
-        }
-
-        List<DialogueCore.Answer> answers =
-                new ArrayList<>(node.getAnswers());
-
-        int maxPage = Math.max(
-                0,
-                (answers.size() - 1) / ENTRIES_PER_PAGE
-        );
-
-        int safePage = Math.max(0, Math.min(page, maxPage));
-
-        EditorHolder holder = new EditorHolder(
-                Screen.NODE,
-                dialogueId,
-                nodeId,
-                null,
-                safePage,
-                new ArrayList<>()
-        );
-
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Відповіді: " + nodeId)
-        );
-
-        holder.inventory = inventory;
-        fillBackground(inventory);
-
-        int start = safePage * ENTRIES_PER_PAGE;
-        int end = Math.min(
-                start + ENTRIES_PER_PAGE,
-                answers.size()
-        );
-
-        int[] slots = createEntrySlots();
-
-        for (int i = start; i < end; i++) {
-            DialogueCore.Answer answer = answers.get(i);
-            holder.entries.add(answer.getId());
-
-            inventory.setItem(
-                    slots[i - start],
-                    createItem(
-                            answer.isEnabled()
-                                    ? Material.PAPER
-                                    : Material.GRAY_DYE,
-                            "§e" + answer.getId(),
-                            List.of(
-                                    "§7" + answer.getText(),
-                                    "",
-                                    "§7Статус: " + (
-                                            answer.isEnabled()
-                                                    ? "§aУвімкнена"
-                                                    : "§cВимкнена"
-                                    ),
-                                    "",
-                                    "§aНатисни, щоб редагувати"
-                            )
-                    )
-            );
-        }
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до гілки")
-                )
-        );
-
-        inventory.setItem(
-                48,
-                createItem(
-                        Material.WRITABLE_BOOK,
-                        "§aСтворити відповідь",
-                        List.of("§7Додати нову відповідь")
-                )
-        );
-
-        inventory.setItem(
-                49,
-                createItem(
-                        Material.PAPER,
-                        "§eСторінка " + (safePage + 1)
-                                + " / " + (maxPage + 1),
-                        List.of("§7Усього відповідей: " + answers.size())
-                )
-        );
-
-        if (safePage > 0) {
-            inventory.setItem(
-                    51,
-                    createItem(
-                            Material.ARROW,
-                            "§eПопередня сторінка",
-                            List.of("§7Перейти назад")
-                    )
-            );
-        }
-
-        if (safePage < maxPage) {
-            inventory.setItem(
-                    53,
-                    createItem(
-                            Material.ARROW,
-                            "§eНаступна сторінка",
-                            List.of("§7Перейти вперед")
-                    )
-            );
-        }
-
-        player.openInventory(inventory);
-    }
-
-    private void openSettingsMenu(
-            Player player,
-            String dialogueId
-    ) {
-        DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
-
-        if (dialogue == null) {
-            openMainMenu(player, 0);
-            return;
-        }
-
-        DialogueCore.Settings settings = dialogue.getSettings();
-
-        EditorHolder holder = new EditorHolder(
-                Screen.SETTINGS,
-                dialogueId,
-                null,
-                null,
-                0,
-                new ArrayList<>()
-        );
-
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Налаштування діалогу")
-        );
-
-        holder.inventory = inventory;
-        fillBackground(inventory);
-
-        inventory.setItem(
-                10,
-                createItem(
-                        Material.ENDER_EYE,
-                        "§eПозиція камери",
-                        List.of(
-                                "§7Поточна позиція:",
-                                "§f" + formatLocation(
-                                        settings.getCameraLocation()
-                                ),
-                                "",
-                                "§aНатисни, щоб зберегти",
-                                "§7поточну позицію гравця"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                12,
-                createItem(
-                        Material.ARMOR_STAND,
-                        "§eПозиція тексту",
-                        List.of(
-                                "§7Визначає місце появи",
-                                "§7тексту діалогу.",
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                14,
-                createItem(
-                        Material.GLASS,
-                        "§eФон тексту",
-                        List.of(
-                                "§7Колір та прозорість",
-                                "§7фону текстового вікна.",
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                16,
-                createItem(
-                        Material.PAINTING,
-                        "§eКолір тексту",
-                        List.of(
-                                "§7Колір символів діалогу.",
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                28,
-                createItem(
-                        Material.CLOCK,
-                        "§eШвидкість друку",
-                        List.of(
-                                "§7Затримка між символами.",
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                30,
-                createItem(
-                        Material.NOTE_BLOCK,
-                        "§eЗвук друку",
-                        List.of(
-                                "§7Звук під час появи символів.",
-                                "",
-                                "§aНатисни, щоб вибрати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                32,
-                createItem(
-                        Material.SPYGLASS,
-                        "§eВідображення крізь блоки",
-                        List.of(
-                                "§7Керування видимістю тексту",
-                                "§7за перешкодами.",
-                                "",
-                                "§aНатисни, щоб перемкнути"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                34,
-                createItem(
-                        Material.BOOK,
-                        "§eІнші параметри",
-                        List.of(
-                                "§7Додаткові налаштування",
-                                "§7поточного діалогу.",
-                                "",
-                                "§aНатисни, щоб відкрити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до діалогу")
-                )
-        );
-
-        player.openInventory(inventory);
-    }
-
-    private String formatLocation(org.bukkit.Location location) {
-        if (location == null) {
-            return "§cНе задано";
-        }
-
-        return String.format(
-                Locale.US,
-                "§f%s: %.2f %.2f %.2f",
-                location.getWorld() == null
-                        ? "?"
-                        : location.getWorld().getName(),
-                location.getX(),
-                location.getY(),
-                location.getZ()
-        );
-    }
-
-    private void openSoundPicker(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId,
-            int page
-    ) {
-        List<String> sounds = new ArrayList<>();
-
-        for (Sound sound : Sound.values()) {
-            sounds.add(sound.name().toLowerCase(Locale.ROOT));
-        }
-
-        sounds.sort(String::compareTo);
-
-        int maxPage = Math.max(
-                0,
-                (sounds.size() - 1) / ENTRIES_PER_PAGE
-        );
-
-        int safePage = Math.max(0, Math.min(page, maxPage));
-
-        EditorHolder holder = new EditorHolder(
-                Screen.SOUND_PICKER,
-                dialogueId,
-                nodeId,
-                answerId,
-                safePage,
-                new ArrayList<>()
-        );
-
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Вибір звуку")
-        );
-
-        holder.inventory = inventory;
-        fillBackground(inventory);
-
-        int start = safePage * ENTRIES_PER_PAGE;
-        int end = Math.min(
-                start + ENTRIES_PER_PAGE,
-                sounds.size()
-        );
-
-        int[] slots = createEntrySlots();
-
-        for (int i = start; i < end; i++) {
-            String soundName = sounds.get(i);
-
-            holder.entries.add(soundName);
-
-            inventory.setItem(
-                    slots[i - start],
-                    createItem(
-                            Material.NOTE_BLOCK,
-                            "§e" + soundName,
-                            List.of(
-                                    "§7Звук Minecraft",
-                                    "",
-                                    "§aЛКМ — прослухати",
-                                    "§eПКМ — вибрати"
-                            )
-                    )
-            );
-        }
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до відповіді")
-                )
-        );
-
-        inventory.setItem(
-                49,
-                createItem(
-                        Material.PAPER,
-                        "§eСторінка " + (safePage + 1)
-                                + " / " + (maxPage + 1),
-                        List.of(
-                                "§7Усього звуків: " + sounds.size()
-                        )
-                )
-        );
-
-        inventory.setItem(
-                50,
-                createItem(
-                        Material.BARRIER,
-                        "§cПрибрати звук",
-                        List.of(
-                                "§7Відповідь не матиме",
-                                "§7окремого звуку."
-                        )
-                )
-        );
-
-        if (safePage > 0) {
-            inventory.setItem(
-                    51,
-                    createItem(
-                            Material.ARROW,
-                            "§eПопередня сторінка",
-                            List.of("§7Перейти назад")
-                    )
-            );
-        }
-
-        if (safePage < maxPage) {
-            inventory.setItem(
-                    53,
-                    createItem(
-                            Material.ARROW,
-                            "§eНаступна сторінка",
-                            List.of("§7Перейти вперед")
-                    )
-            );
-        }
-
-        player.openInventory(inventory);
-    }
-
-    private void handleSoundPickerClick(
+    // ============================================================
+    // SETTINGS CLICK HANDLER
+    // ============================================================
+
+    private void handleSettingsClick(
             Player player,
             EditorHolder holder,
             int slot,
             ClickType click
     ) {
-        if (slot == 45) {
-            openAnswerMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId
-            );
+        if (slot == SLOT_BACK && isLeft(click)) {
+            if (holder.nodeId == null) {
+                openDialogueMenu(player, holder.dialogueId);
+            } else {
+                openNodeMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
             return;
         }
 
-        if (slot == 50) {
-            setAnswerSound(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId,
-                    null
-            );
+        if (!isLeft(click)) {
             return;
         }
 
-        if (slot == 51 && holder.page > 0) {
+        if (holder.nodeId == null) {
+            handleGlobalSettingsClick(
+                    player, holder, slot
+            );
+        } else {
+            handleBranchSettingsClick(
+                    player, holder, slot
+            );
+        }
+    }
+
+    private void handleGlobalSettingsClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        switch (slot) {
+            case 10 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "hide-players"
+            );
+
+            case 11 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "one-time"
+            );
+
+            case 12 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "see-through-blocks"
+            );
+
+            case 13 -> captureTextLocation(
+                    player, holder.dialogueId, "start"
+            );
+
+            case 14 -> captureCameraLocation(
+                    player, holder.dialogueId, "start"
+            );
+
+            case 15 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "smooth-camera"
+            );
+
+            case 16 -> openSoundPicker(
+                    player,
+                    holder.dialogueId,
+                    "start",
+                    null,
+                    0
+            );
+
+            case 19 -> requestGlobalNumber(
+                    player, holder.dialogueId, "typing-speed"
+            );
+
+            case 20 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "character-printing"
+            );
+
+            case 21 -> openSoundParameters(
+                    player, holder.dialogueId
+            );
+
+            case 22 -> requestGlobalNumber(
+                    player, holder.dialogueId, "text-scale"
+            );
+
+            case 23 -> requestGlobalNumber(
+                    player, holder.dialogueId, "window-width"
+            );
+
+            case 24 -> requestGlobalNumber(
+                    player, holder.dialogueId, "background-alpha"
+            );
+
+            case 25 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "invisibility"
+            );
+
+            case 28 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "slowness"
+            );
+
+            case 29 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "return-to-start"
+            );
+
+            case 30 -> toggleGlobalSetting(
+                    player, holder.dialogueId, "actionbar-hints"
+            );
+
+            default -> {
+            }
+        }
+    }
+
+    private void handleBranchSettingsClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        switch (slot) {
+            case 10 -> openColorPicker(
+                    player, holder.dialogueId,
+                    holder.nodeId, "text-color"
+            );
+
+            case 11 -> openColorPicker(
+                    player, holder.dialogueId,
+                    holder.nodeId, "background-color"
+            );
+
+            case 12 -> requestBranchNumber(
+                    player, holder.dialogueId,
+                    holder.nodeId, "text-scale"
+            );
+
+            case 13 -> captureTextLocation(
+                    player, holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 14 -> captureCameraLocation(
+                    player, holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 15 -> requestBranchNumber(
+                    player, holder.dialogueId,
+                    holder.nodeId, "typing-speed"
+            );
+
+            case 16 -> openSoundPicker(
+                    player, holder.dialogueId,
+                    holder.nodeId, null, 0
+            );
+
+            case 19 -> openCommandSettings(
+                    player, holder.dialogueId,
+                    holder.nodeId, null
+            );
+
+            case 20 -> openBranchConditions(
+                    player, holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 21 -> openBranchRewards(
+                    player, holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case 22 -> toggleBranchSetting(
+                    player, holder.dialogueId,
+                    holder.nodeId, "return-to-start"
+            );
+
+            case 23 -> openInheritanceReset(
+                    player, holder.dialogueId,
+                    holder.nodeId
+            );
+
+            default -> {
+            }
+        }
+    }
+    // ============================================================
+    // SOUND PICKER CLICK HANDLER
+    // ============================================================
+
+    private void handleSoundClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            if (holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
             openSoundPicker(
                     player,
                     holder.dialogueId,
@@ -2751,7 +2773,7 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (slot == 53) {
+        if (slot == SLOT_NEXT && isLeft(click)) {
             openSoundPicker(
                     player,
                     holder.dialogueId,
@@ -2762,92 +2784,508 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        int[] slots = createEntrySlots();
+        String soundName = entryAt(holder, slot);
 
-        for (int i = 0; i < slots.length; i++) {
-            if (slots[i] != slot || i >= holder.entries.size()) {
-                continue;
-            }
+        if (soundName == null) {
+            return;
+        }
 
-            String soundName = holder.entries.get(i);
+        Sound sound;
 
-            if (click.isLeftClick()) {
-                try {
-                    Sound sound = Sound.valueOf(
-                            soundName.toUpperCase(Locale.ROOT)
-                    );
+        try {
+            sound = Sound.valueOf(soundName);
+        } catch (IllegalArgumentException exception) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Цей звук більше недоступний.",
+                            NamedTextColor.RED
+                    ))
+            );
+            return;
+        }
 
-                    player.playSound(
-                            player.getLocation(),
-                            sound,
-                            1.0f,
-                            1.0f
-                    );
-                } catch (IllegalArgumentException exception) {
-                    player.sendMessage(
-                            Component.text(
-                                    "Не вдалося відтворити цей звук.",
-                                    NamedTextColor.RED
-                            )
-                    );
-                }
+        if (isLeft(click)) {
+            player.playSound(
+                    player.getLocation(),
+                    sound,
+                    1.0f,
+                    1.0f
+            );
+            return;
+        }
 
+        if (!isRight(click)) {
+            return;
+        }
+
+        if (holder.answerId != null) {
+            DialogueCore.Node node = getNode(
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            if (node == null) {
                 return;
             }
 
-            if (click.isRightClick()) {
-                setAnswerSound(
+            DialogueCore.Answer answer =
+                    node.getAnswer(holder.answerId);
+
+            if (answer == null) {
+                return;
+            }
+
+            answer.setSound(sound.name());
+        } else {
+            core.setBranchSetting(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    "typing-sound",
+                    sound.name()
+            );
+        }
+
+        save(holder.dialogueId);
+
+        player.sendMessage(
+                PREFIX.append(Component.text(
+                        " Звук збережено: " + sound.name(),
+                        NamedTextColor.GREEN
+                ))
+        );
+
+        if (holder.answerId != null) {
+            openAnswerMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+        } else {
+            openBranchSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+        }
+    }
+
+    // ============================================================
+    // CONDITION CLICK HANDLER
+    // ============================================================
+
+    private void handleConditionClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            if (holder.answerId != null) {
+                openConditionList(
                         player,
                         holder.dialogueId,
                         holder.nodeId,
                         holder.answerId,
-                        soundName
+                        0
                 );
-                return;
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
             }
+            return;
+        }
+
+        if (holder.answerId == null) {
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            openConditionList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page - 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openConditionList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page + 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_CREATE && isLeft(click)) {
+            createCondition(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        if (slot == 45 && isLeft(click)) {
+            toggleConditionLogic(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        String conditionId = entryAt(holder, slot);
+
+        if (conditionId == null) {
+            return;
+        }
+
+        if (isLeft(click)) {
+            openConditionMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    conditionId
+            );
+        } else if (isShiftRight(click)) {
+            deleteCondition(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    conditionId
+            );
         }
     }
 
-    private void setAnswerSound(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId,
-            String soundName
-    ) {
-        DialogueCore.Dialogue dialogue =
-                core.getDialogue(dialogueId);
+    // ============================================================
+    // REWARD CLICK HANDLER
+    // ============================================================
 
-        if (dialogue == null) {
-            openMainMenu(player, 0);
+    private void handleRewardClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            if (holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
             return;
         }
 
-        DialogueCore.Node node = dialogue.getNode(nodeId);
+        if (holder.answerId == null) {
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            openRewardList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page - 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openRewardList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page + 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_CREATE && isLeft(click)) {
+            createReward(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        String rewardId = entryAt(holder, slot);
+
+        if (rewardId == null) {
+            return;
+        }
+
+        if (isLeft(click)) {
+            openRewardMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    rewardId
+            );
+        } else if (isShiftRight(click)) {
+            deleteReward(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    rewardId
+            );
+        }
+    }
+
+    // ============================================================
+    // BRANCH PICKER CLICK HANDLER
+    // ============================================================
+
+    private void handleBranchPickerClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            openAnswerMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            openBranchPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page - 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openBranchPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page + 1
+            );
+            return;
+        }
+
+        if (!isLeft(click)) {
+            return;
+        }
+
+        String targetNodeId = entryAt(holder, slot);
+
+        if (targetNodeId == null) {
+            return;
+        }
+
+        DialogueCore.Node node = getNode(
+                holder.dialogueId,
+                holder.nodeId
+        );
 
         if (node == null) {
-            openDialogueMenu(player, dialogueId, 0);
             return;
         }
 
-        DialogueCore.Answer answer = findAnswer(node, answerId);
+        DialogueCore.Answer answer =
+                node.getAnswer(holder.answerId);
 
         if (answer == null) {
-            openNodeMenu(player, dialogueId, nodeId);
             return;
         }
 
-        answer.setSound(soundName);
-        core.saveDialogue(dialogueId);
+        answer.setTargetNode(targetNodeId);
+        save(holder.dialogueId);
+
+        openAnswerMenu(
+                player,
+                holder.dialogueId,
+                holder.nodeId,
+                holder.answerId
+        );
+    }
+
+    // ============================================================
+    // DIALOGUE CREATION
+    // ============================================================
+
+    private void createDialogue(
+            Player player,
+            String name
+    ) {
+        String id = normalizeId(name);
+
+        if (id.isBlank()) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Некоректна назва.",
+                            NamedTextColor.RED
+                    ))
+            );
+            openMainMenu(player);
+            return;
+        }
+
+        if (core.getDialogue(id) != null) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Діалог із такою назвою вже існує.",
+                            NamedTextColor.RED
+                    ))
+            );
+            openMainMenu(player);
+            return;
+        }
+
+        DialogueCore.Dialogue dialogue =
+                core.createDialogue(id);
+
+        if (dialogue == null) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Не вдалося створити діалог.",
+                            NamedTextColor.RED
+                    ))
+            );
+            openMainMenu(player);
+            return;
+        }
+
+        save(id);
 
         player.sendMessage(
-                Component.text(
-                        soundName == null
-                                ? "Звук відповіді прибрано."
-                                : "Звук відповіді збережено: " + soundName,
+                PREFIX.append(Component.text(
+                        " Діалог створено: " + id,
                         NamedTextColor.GREEN
-                )
+                ))
         );
+
+        openDialogueMenu(player, id);
+    }
+
+    private String normalizeId(String input) {
+        return input
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replace(' ', '_')
+                .replaceAll("[^a-z0-9_\\-]", "");
+    }
+
+    // ============================================================
+    // BRANCH CREATION
+    // ============================================================
+
+    private void createBranch(
+            Player player,
+            String dialogueId,
+            String name
+    ) {
+        String id = normalizeId(name);
+
+        DialogueCore.Dialogue dialogue =
+                getDialogue(dialogueId);
+
+        if (dialogue == null) {
+            openMainMenu(player);
+            return;
+        }
+
+        if (id.isBlank() || id.equalsIgnoreCase("start")) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Некоректна назва гілки.",
+                            NamedTextColor.RED
+                    ))
+            );
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        if (dialogue.getNode(id) != null) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Така гілка вже існує.",
+                            NamedTextColor.RED
+                    ))
+            );
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        core.createBranch(dialogueId, id);
+        save(dialogueId);
+
+        player.sendMessage(
+                PREFIX.append(Component.text(
+                        " Гілку створено: " + id,
+                        NamedTextColor.GREEN
+                ))
+        );
+
+        openNodeMenu(player, dialogueId, id);
+    }
+
+    // ============================================================
+    // ANSWER CREATION
+    // ============================================================
+
+    private void createAnswer(
+            Player player,
+            String dialogueId,
+            String nodeId
+    ) {
+        String answerId = core.createAnswer(
+                dialogueId,
+                nodeId,
+                "Нова відповідь",
+                nodeId
+        );
+
+        if (answerId == null) {
+            player.sendMessage(
+                    PREFIX.append(Component.text(
+                            " Не вдалося створити відповідь.",
+                            NamedTextColor.RED
+                    ))
+            );
+            openAnswerList(player, dialogueId, nodeId, 0);
+            return;
+        }
+
+        save(dialogueId);
 
         openAnswerMenu(
                 player,
@@ -2856,1121 +3294,1663 @@ public final class DialogueEditor implements Listener {
                 answerId
         );
     }
-
-    private void handleSettingsMenuClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        switch (slot) {
-            case 10 -> saveCameraLocationFromPlayer(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 12 -> requestTextLocation(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 14 -> requestBackgroundColor(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 16 -> requestTextColor(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 28 -> requestTypingSpeed(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 30 -> requestTypingSound(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 32 -> toggleSeeThroughBlocks(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 34 -> openAdvancedSettings(
-                    player,
-                    holder.dialogueId
-            );
-
-            case 45 -> openDialogueMenu(
-                    player,
-                    holder.dialogueId,
-                    0
-            );
-
-            default -> {
+    private void requestRenameDialogue(Player player, String dialogueId) {
+        requestChatInput(player, "Введіть нову назву діалогу:", input -> {
+            String newId = normalizeId(input);
+            if (newId.isBlank()) {
+                player.sendMessage(Component.text("Назва не може бути порожньою."));
+                openDialogueMenu(player, dialogueId);
+                return;
             }
-        }
+
+            if (core.getDialogue(newId) != null && !newId.equals(dialogueId)) {
+                player.sendMessage(Component.text("Діалог із такою назвою вже існує."));
+                openDialogueMenu(player, dialogueId);
+                return;
+            }
+
+            core.renameDialogue(dialogueId, newId);
+            player.sendMessage(Component.text("Діалог перейменовано."));
+            openDialogueMenu(player, newId);
+        });
     }
 
-    private void saveCameraLocationFromPlayer(
-            Player player,
-            String dialogueId
-    ) {
-        boolean saved = core.setCameraLocation(
+    private void confirmDeleteDialogue(Player player, String dialogueId) {
+        DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
+        if (dialogue == null) {
+            openMainMenu(player, 0);
+            return;
+        }
+
+        Inventory inventory = createHolder(
+                player,
+                Screen.CONFIRM_DELETE,
                 dialogueId,
-                player.getLocation().clone()
+                null,
+                null,
+                27,
+                "§4Видалити діалог?"
         );
 
-        if (saved) {
-            player.sendMessage(
-                    Component.text(
-                            "Позицію камери збережено.",
-                            NamedTextColor.GREEN
-                    )
-            );
+        inventory.setItem(11, item(
+                Material.GREEN_WOOL,
+                "§aПідтвердити",
+                "§7Видалити діалог і всі його дані"
+        ));
+
+        inventory.setItem(15, item(
+                Material.RED_WOOL,
+                "§cСкасувати",
+                "§7Повернутися до меню діалогу"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void requestRenameBranch(Player player, String dialogueId, String nodeId) {
+        requestChatInput(player, "Введіть нову назву гілки:", input -> {
+            String newId = normalizeId(input);
+
+            if (newId.isBlank()) {
+                player.sendMessage(Component.text("Назва не може бути порожньою."));
+                openNodeMenu(player, dialogueId, nodeId);
+                return;
+            }
+
+            DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
+            if (dialogue == null) {
+                openMainMenu(player, 0);
+                return;
+            }
+
+            if (dialogue.getNode(newId) != null && !newId.equals(nodeId)) {
+                player.sendMessage(Component.text("Гілка з такою назвою вже існує."));
+                openNodeMenu(player, dialogueId, nodeId);
+                return;
+            }
+
+            core.renameBranch(dialogueId, nodeId, newId);
+            player.sendMessage(Component.text("Гілку перейменовано."));
+            openNodeMenu(player, dialogueId, newId);
+        });
+    }
+
+    private void confirmDeleteBranch(Player player, String dialogueId, String nodeId) {
+        Inventory inventory = createHolder(
+                player,
+                Screen.CONFIRM_DELETE,
+                dialogueId,
+                nodeId,
+                null,
+                27,
+                "§4Видалити гілку?"
+        );
+
+        inventory.setItem(11, item(
+                Material.GREEN_WOOL,
+                "§aПідтвердити",
+                "§7Видалити гілку та її відповіді"
+        ));
+
+        inventory.setItem(15, item(
+                Material.RED_WOOL,
+                "§cСкасувати",
+                "§7Повернутися до редактора гілки"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void requestBranchText(Player player, String dialogueId, String nodeId) {
+        requestChatInput(player, "Введіть текст гілки:", input -> {
+            core.setBranchText(dialogueId, nodeId, input);
+            player.sendMessage(Component.text("Текст гілки збережено."));
+            openNodeMenu(player, dialogueId, nodeId);
+        });
+    }
+
+    private void requestBranchDelay(Player player, String dialogueId, String nodeId) {
+        requestChatInput(player, "Введіть затримку показу тексту в тіках:", input -> {
+            try {
+                int ticks = Integer.parseInt(input.trim());
+
+                if (ticks < 0) {
+                    throw new NumberFormatException();
+                }
+
+                core.setBranchSetting(
+                        dialogueId,
+                        nodeId,
+                        "delay",
+                        String.valueOf(ticks)
+                );
+
+                player.sendMessage(Component.text("Затримку збережено."));
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("Введіть ціле число від 0."));
+            }
+
+            openNodeMenu(player, dialogueId, nodeId);
+        });
+    }
+
+    private void confirmDeleteAnswer(Player player, String dialogueId, String nodeId, String answerId) {
+        Inventory inventory = createHolder(
+                player,
+                Screen.CONFIRM_DELETE,
+                dialogueId,
+                nodeId,
+                answerId,
+                27,
+                "§4Видалити відповідь?"
+        );
+
+        inventory.setItem(11, item(
+                Material.GREEN_WOOL,
+                "§aПідтвердити",
+                "§7Видалити цю відповідь"
+        ));
+
+        inventory.setItem(15, item(
+                Material.RED_WOOL,
+                "§cСкасувати",
+                "§7Повернутися до відповіді"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void openCommandSettings(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        DialogueCore.Answer answer = core.getAnswer(dialogueId, nodeId, answerId);
+        if (answer == null) {
+            openAnswerList(player, dialogueId, nodeId, 0);
+            return;
+        }
+
+        Inventory inventory = createHolder(
+                player,
+                Screen.COMMANDS,
+                dialogueId,
+                nodeId,
+                answerId,
+                54,
+                "§8Команди відповіді"
+        );
+
+        inventory.setItem(10, item(
+                Material.WRITABLE_BOOK,
+                "§eДодати команду",
+                "§7Введіть команду в чат",
+                "§7Плейсхолдери: {player}, {uuid}"
+        ));
+
+        inventory.setItem(12, item(
+                Material.PAPER,
+                "§fКоманди відповіді",
+                "§7Кількість: §e" + answer.getCommands().size()
+        ));
+
+        inventory.setItem(14, item(
+                Material.COMMAND_BLOCK,
+                "§bВиконання команд",
+                "§7Команди виконуються від імені консолі"
+        ));
+
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7До редактора відповіді"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void openBranchCommands(
+            Player player,
+            String dialogueId,
+            String nodeId
+    ) {
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        Inventory inventory = createHolder(
+                player,
+                Screen.COMMANDS,
+                dialogueId,
+                nodeId,
+                null,
+                54,
+                "§8Команди гілки"
+        );
+
+        inventory.setItem(10, item(
+                Material.WRITABLE_BOOK,
+                "§eДодати команду",
+                "§7Введіть команду в чат"
+        ));
+
+        inventory.setItem(12, item(
+                Material.PAPER,
+                "§fКоманди гілки",
+                "§7Кількість: §e" + node.getCommands().size()
+        ));
+
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7До редактора гілки"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void addAnswerCommand(Player player, String dialogueId, String nodeId, String answerId) {
+        requestChatInput(player, "Введіть команду без початкового /:", input -> {
+            String command = input.trim();
+
+            if (command.isBlank()) {
+                player.sendMessage(Component.text("Команда не може бути порожньою."));
+                openCommandSettings(player, dialogueId, nodeId, answerId);
+                return;
+            }
+
+            if (command.startsWith("/")) {
+                command = command.substring(1);
+            }
+
+            core.addAnswerCommand(dialogueId, nodeId, answerId, command);
+            player.sendMessage(Component.text("Команду додано."));
+            openCommandSettings(player, dialogueId, nodeId, answerId);
+        });
+    }
+
+    private void addBranchCommand(Player player, String dialogueId, String nodeId) {
+        requestChatInput(player, "Введіть команду без початкового /:", input -> {
+            String command = input.trim();
+
+            if (command.isBlank()) {
+                player.sendMessage(Component.text("Команда не може бути порожньою."));
+                openBranchCommands(player, dialogueId, nodeId);
+                return;
+            }
+
+            if (command.startsWith("/")) {
+                command = command.substring(1);
+            }
+
+            core.addBranchCommand(dialogueId, nodeId, command);
+            player.sendMessage(Component.text("Команду додано."));
+            openBranchCommands(player, dialogueId, nodeId);
+        });
+    }
+    private void toggleGlobalSetting(Player player, String dialogueId, String key) {
+        DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
+        if (dialogue == null) {
+            openMainMenu(player, 0);
+            return;
+        }
+
+        boolean current = core.getGlobalBoolean(dialogueId, key);
+        core.setGlobalSetting(dialogueId, key, String.valueOf(!current));
+
+        save(dialogueId);
+        openDialogueSettings(player, dialogueId);
+    }
+
+    private void captureTextLocation(Player player, String dialogueId, String nodeId) {
+        Location location = player.getLocation();
+
+        String value = location.getWorld().getName()
+                + "," + location.getX()
+                + "," + location.getY()
+                + "," + location.getZ()
+                + "," + location.getYaw()
+                + "," + location.getPitch();
+
+        if (nodeId == null) {
+            core.setGlobalSetting(dialogueId, "text-location", value);
+            save(dialogueId);
+            player.sendMessage(Component.text("Глобальну позицію тексту збережено."));
+            openDialogueSettings(player, dialogueId);
         } else {
-            player.sendMessage(
-                    Component.text(
-                            "Не вдалося зберегти позицію камери.",
-                            NamedTextColor.RED
-                    )
-            );
+            core.setBranchSetting(dialogueId, nodeId, "text-location", value);
+            save(dialogueId);
+            player.sendMessage(Component.text("Позицію тексту гілки збережено."));
+            openBranchSettings(player, dialogueId, nodeId);
         }
-
-        openSettingsMenu(player, dialogueId);
     }
 
-    private void requestTextLocation(
-            Player player,
-            String dialogueId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            String[] parts = value.trim().split("\\s+");
+    private void captureCameraLocation(Player player, String dialogueId, String nodeId) {
+        Location location = player.getLocation();
 
-                            if (parts.length != 3) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Потрібно ввести рівно три числа: X Y Z.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                                openSettingsMenu(player, dialogueId);
-                                return;
-                            }
+        String value = location.getWorld().getName()
+                + "," + location.getX()
+                + "," + location.getY()
+                + "," + location.getZ()
+                + "," + location.getYaw()
+                + "," + location.getPitch();
 
-                            try {
-                                double x = Double.parseDouble(parts[0]);
-                                double y = Double.parseDouble(parts[1]);
-                                double z = Double.parseDouble(parts[2]);
-
-                                if (!Double.isFinite(x)
-                                        || !Double.isFinite(y)
-                                        || !Double.isFinite(z)) {
-                                    throw new NumberFormatException();
-                                }
-
-                                player.sendMessage(
-                                        Component.text(
-                                                "Координати прийнято: "
-                                                        + x + " " + y + " " + z
-                                                        + ". Збереження буде підключено "
-                                                        + "після узгодження API налаштувань.",
-                                                NamedTextColor.YELLOW
-                                        )
-                                );
-                            } catch (NumberFormatException exception) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Некоректні координати. "
-                                                        + "Приклад: 10.5 72 -30.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
-
-                            openSettingsMenu(player, dialogueId);
-                        },
-                        "Введи координати тексту у форматі X Y Z."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи три координати тексту через пробіл: X Y Z.",
-                        NamedTextColor.YELLOW
-                )
-        );
+        if (nodeId == null) {
+            core.setGlobalSetting(dialogueId, "camera-location", value);
+            save(dialogueId);
+            player.sendMessage(Component.text("Глобальну позицію камери збережено."));
+            openDialogueSettings(player, dialogueId);
+        } else {
+            core.setBranchSetting(dialogueId, nodeId, "camera-location", value);
+            save(dialogueId);
+            player.sendMessage(Component.text("Позицію камери гілки збережено."));
+            openBranchSettings(player, dialogueId, nodeId);
+        }
     }
 
-    private void requestBackgroundColor(
-            Player player,
-            String dialogueId
-    ) {
-        requestColorValue(
-                player,
-                dialogueId,
-                "фону",
-                "background"
-        );
-    }
+    private void requestGlobalNumber(Player player, String dialogueId, String key, String title) {
+        requestChatInput(player, "Введіть значення для параметра «" + title + "»:", input -> {
+            try {
+                double value = Double.parseDouble(input.trim());
 
-    private void requestTextColor(
-            Player player,
-            String dialogueId
-    ) {
-        requestColorValue(
-                player,
-                dialogueId,
-                "тексту",
-                "text-color"
-        );
-    }
+                if (!Double.isFinite(value) || value < 0) {
+                    throw new NumberFormatException();
+                }
 
-    private void requestColorValue(
-            Player player,
-            String dialogueId,
-            String displayName,
-            String settingKey
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            String color = value.trim();
-
-                            if (!color.matches(
-                                    "#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?"
-                            )
-                                    && !color.equalsIgnoreCase("none")
-                                    && !color.matches("[a-zA-Z_-]+")) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Некоректний колір. "
-                                                        + "Використовуй HEX, назву кольору "
-                                                        + "або none для фону.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            } else {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Колір " + displayName
-                                                        + " прийнято. "
-                                                        + "Збереження параметра "
-                                                        + "підключимо після звірки Settings API.",
-                                                NamedTextColor.YELLOW
-                                        )
-                                );
-                            }
-
-                            openSettingsMenu(player, dialogueId);
-                        },
-                        "Введи колір " + displayName
-                                + " у форматі HEX або назву кольору."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи колір " + displayName
-                                + ". Наприклад: #FFFFFF.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void requestTypingSpeed(
-            Player player,
-            String dialogueId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            try {
-                                int speed = Integer.parseInt(value.trim());
-
-                                if (speed < 0 || speed > 1000) {
-                                    player.sendMessage(
-                                            Component.text(
-                                                    "Швидкість має бути від 0 до 1000 мс.",
-                                                    NamedTextColor.RED
-                                            )
-                                    );
-                                } else {
-                                    player.sendMessage(
-                                            Component.text(
-                                                    "Значення швидкості прийнято: "
-                                                            + speed + " мс.",
-                                                    NamedTextColor.YELLOW
-                                            )
-                                    );
-                                }
-                            } catch (NumberFormatException exception) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Введи ціле число.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
-
-                            openSettingsMenu(player, dialogueId);
-                        },
-                        "Введи затримку між символами в мілісекундах."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи затримку між символами. "
-                                + "0 — миттєвий текст, 50 — повільніше.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void requestTypingSound(
-            Player player,
-            String dialogueId
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            String soundName = value.trim();
-
-                            if (soundName.equalsIgnoreCase("none")) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Звук друку вимкнено. "
-                                                        + "Збереження параметра "
-                                                        + "підключимо після звірки Settings API.",
-                                                NamedTextColor.YELLOW
-                                        )
-                                );
-                                openSettingsMenu(player, dialogueId);
-                                return;
-                            }
-
-                            try {
-                                Sound.valueOf(
-                                        soundName.toUpperCase(Locale.ROOT)
-                                );
-
-                                player.sendMessage(
-                                        Component.text(
-                                                "Звук перевірено: "
-                                                        + soundName
-                                                        + ". Збереження підключимо "
-                                                        + "після звірки Settings API.",
-                                                NamedTextColor.YELLOW
-                                        )
-                                );
-                            } catch (IllegalArgumentException exception) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Такого звуку немає в переліку Minecraft.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
-
-                            openSettingsMenu(player, dialogueId);
-                        },
-                        "Введи назву звуку або none."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи назву звуку Minecraft. "
-                                + "Наприклад: block_note_block_harp. "
-                                + "Введи none, щоб вимкнути звук.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void toggleSeeThroughBlocks(
-            Player player,
-            String dialogueId
-    ) {
-        player.sendMessage(
-                Component.text(
-                        "Перемикання видимості крізь блоки "
-                                + "буде підключено після звірки Settings API.",
-                        NamedTextColor.YELLOW
-                )
-        );
-
-        openSettingsMenu(player, dialogueId);
-    }
-
-    private void openAdvancedSettings(
-            Player player,
-            String dialogueId
-    ) {
-        EditorHolder holder = new EditorHolder(
-                Screen.SETTINGS,
-                dialogueId,
-                null,
-                null,
-                1,
-                new ArrayList<>()
-        );
-
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Додаткові налаштування")
-        );
-
-        holder.inventory = inventory;
-        fillBackground(inventory);
-
-        inventory.setItem(
-                10,
-                createItem(
-                        Material.PLAYER_HEAD,
-                        "§eПриховування інших гравців",
-                        List.of(
-                                "§7Під час діалогу інші гравці",
-                                "§7можуть бути приховані.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                12,
-                createItem(
-                        Material.CLOCK,
-                        "§eЗатримка перед продовженням",
-                        List.of(
-                                "§7Час очікування перед",
-                                "§7наступним етапом діалогу.",
-                                "",
-                                "§aНатисни, щоб змінити"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                14,
-                createItem(
-                        Material.REPEATER,
-                        "§eПовторне відтворення",
-                        List.of(
-                                "§7Дозволяє повторно",
-                                "§7запускати цей діалог.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                16,
-                createItem(
-                        Material.COMMAND_BLOCK,
-                        "§eКоманди запуску",
-                        List.of(
-                                "§7Команди при початку діалогу.",
-                                "",
-                                "§aНатисни, щоб редагувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                28,
-                createItem(
-                        Material.COMMAND_BLOCK,
-                        "§eКоманди завершення",
-                        List.of(
-                                "§7Команди після завершення",
-                                "§7діалогу.",
-                                "",
-                                "§aНатисни, щоб редагувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до налаштувань")
-                )
-        );
-
-        player.openInventory(inventory);
-    }
-
-    private void handleAdvancedSettingsClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        switch (slot) {
-            case 10 -> player.sendMessage(
-                    Component.text(
-                            "Налаштування приховування гравців "
-                                    + "буде підключено після звірки Settings API.",
-                            NamedTextColor.YELLOW
-                    )
-            );
-
-            case 12 -> requestAdvancedNumber(
-                    player,
-                    holder.dialogueId,
-                    "Затримка перед продовженням"
-            );
-
-            case 14 -> player.sendMessage(
-                    Component.text(
-                            "Налаштування повторного відтворення "
-                                    + "буде підключено після звірки Settings API.",
-                            NamedTextColor.YELLOW
-                    )
-            );
-
-            case 16 -> requestDialogueCommands(
-                    player,
-                    holder.dialogueId,
-                    "entry-commands"
-            );
-
-            case 28 -> requestDialogueCommands(
-                    player,
-                    holder.dialogueId,
-                    "completion-commands"
-            );
-
-            case 45 -> openSettingsMenu(
-                    player,
-                    holder.dialogueId
-            );
-
-            default -> {
+                core.setGlobalSetting(dialogueId, key, String.valueOf(value));
+                save(dialogueId);
+                player.sendMessage(Component.text("Параметр збережено."));
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("Потрібно ввести невід'ємне число."));
             }
-        }
 
-        if (slot == 10 || slot == 14) {
-            openAdvancedSettings(player, holder.dialogueId);
-        }
+            openDialogueSettings(player, dialogueId);
+        });
     }
 
-    private void requestAdvancedNumber(
+    private void requestBranchNumber(
             Player player,
             String dialogueId,
-            String description
+            String nodeId,
+            String key,
+            String title
     ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            try {
-                                long number = Long.parseLong(value.trim());
+        requestChatInput(player, "Введіть значення для параметра «" + title + "»:", input -> {
+            try {
+                double value = Double.parseDouble(input.trim());
 
-                                if (number < 0 || number > 600000) {
-                                    player.sendMessage(
-                                            Component.text(
-                                                    "Значення має бути від 0 до 600000.",
-                                                    NamedTextColor.RED
-                                            )
-                                    );
-                                } else {
-                                    player.sendMessage(
-                                            Component.text(
-                                                    description + ": "
-                                                            + number + " мс. "
-                                                            + "Збереження підключимо "
-                                                            + "після звірки Settings API.",
-                                                    NamedTextColor.YELLOW
-                                            )
-                                    );
-                                }
-                            } catch (NumberFormatException exception) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Введи ціле число.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
+                if (!Double.isFinite(value) || value < 0) {
+                    throw new NumberFormatException();
+                }
 
-                            openAdvancedSettings(player, dialogueId);
-                        },
-                        "Введи значення в мілісекундах."
-                )
-        );
+                core.setBranchSetting(
+                        dialogueId,
+                        nodeId,
+                        key,
+                        String.valueOf(value)
+                );
 
-        player.closeInventory();
+                save(dialogueId);
+                player.sendMessage(Component.text("Параметр гілки збережено."));
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("Потрібно ввести невід'ємне число."));
+            }
 
-        player.sendMessage(
-                Component.text(
-                        "Введи значення для параметра «"
-                                + description + "» у мілісекундах.",
-                        NamedTextColor.YELLOW
-                )
-        );
+            openBranchSettings(player, dialogueId, nodeId);
+        });
     }
 
-    private void requestDialogueCommands(
-            Player player,
-            String dialogueId,
-            String settingKey
-    ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            List<String> commands = new ArrayList<>();
-
-                            if (!value.equalsIgnoreCase("none")) {
-                                for (String command : value.split("\\|")) {
-                                    String trimmed = command.trim();
-
-                                    if (!trimmed.isEmpty()) {
-                                        commands.add(trimmed);
-                                    }
-                                }
-                            }
-
-                            player.sendMessage(
-                                    Component.text(
-                                            "Отримано команд: "
-                                                    + commands.size()
-                                                    + ". Збереження підключимо "
-                                                    + "після звірки Settings API.",
-                                            NamedTextColor.YELLOW
-                                    )
-                            );
-
-                            openAdvancedSettings(player, dialogueId);
-                        },
-                        "Введи команди через | або none."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи команди через |. "
-                                + "Введи none, щоб очистити список.",
-                        NamedTextColor.YELLOW
-                )
-        );
-  }
-
-    private void openConditionEditor(
+    private void openSoundParameters(
             Player player,
             String dialogueId,
             String nodeId,
             String answerId
     ) {
-        EditorHolder holder = new EditorHolder(
-                Screen.CONDITION_EDITOR,
+        Inventory inventory = createHolder(
+                player,
+                Screen.SOUND_PARAMETERS,
                 dialogueId,
                 nodeId,
                 answerId,
-                0,
-                new ArrayList<>()
+                27,
+                "§8Параметри звуку"
         );
 
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Умови відповіді")
-        );
+        inventory.setItem(11, item(
+                Material.NOTE_BLOCK,
+                "§eГучність",
+                "§7Натисніть, щоб змінити"
+        ));
 
-        holder.inventory = inventory;
-        fillBackground(inventory);
+        inventory.setItem(15, item(
+                Material.JUKEBOX,
+                "§eВисота тону",
+                "§7Натисніть, щоб змінити"
+        ));
 
-        inventory.setItem(
-                10,
-                createItem(
-                        Material.BOOK,
-                        "§eУмова виконання діалогу",
-                        List.of(
-                                "§7Перевіряє, чи завершив",
-                                "§7гравець інший діалог.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                12,
-                createItem(
-                        Material.PAPER,
-                        "§eУмова виконання гілки",
-                        List.of(
-                                "§7Перевіряє проходження",
-                                "§7певної гілки діалогу.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                14,
-                createItem(
-                        Material.NAME_TAG,
-                        "§eВибрана відповідь",
-                        List.of(
-                                "§7Перевіряє, чи вибирав",
-                                "§7гравець певну відповідь.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                16,
-                createItem(
-                        Material.IRON_DOOR,
-                        "§eДозвіл LuckPerms",
-                        List.of(
-                                "§7Перевіряє наявність",
-                                "§7певного permission.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                28,
-                createItem(
-                        Material.NAME_TAG,
-                        "§eТег гравця",
-                        List.of(
-                                "§7Перевіряє тег гравця.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                30,
-                createItem(
-                        Material.CHEST,
-                        "§eПредмет у гравця",
-                        List.of(
-                                "§7Перевіряє наявність",
-                                "§7потрібного предмета.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                32,
-                createItem(
-                        Material.REPEATER,
-                        "§eЛогіка умов",
-                        List.of(
-                                "§7AND — усі умови мають",
-                                "§7бути виконані.",
-                                "§7OR — достатньо однієї.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до відповіді")
-                )
-        );
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7До налаштувань звуку"
+        ));
 
         player.openInventory(inventory);
     }
 
-    private void openRewardEditor(
+    private void toggleBranchSetting(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String key
+    ) {
+        String current = core.getBranchSetting(dialogueId, nodeId, key);
+        boolean enabled = Boolean.parseBoolean(current);
+
+        core.setBranchSetting(
+                dialogueId,
+                nodeId,
+                key,
+                String.valueOf(!enabled)
+        );
+
+        save(dialogueId);
+        openBranchSettings(player, dialogueId, nodeId);
+    }
+
+    private void openColorPicker(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String key
+    ) {
+        Inventory inventory = createHolder(
+                player,
+                Screen.COLOR_PICKER,
+                dialogueId,
+                nodeId,
+                key,
+                54,
+                "§8Вибір кольору"
+        );
+
+        Material[] materials = {
+                Material.WHITE_WOOL,
+                Material.ORANGE_WOOL,
+                Material.MAGENTA_WOOL,
+                Material.LIGHT_BLUE_WOOL,
+                Material.YELLOW_WOOL,
+                Material.LIME_WOOL,
+                Material.PINK_WOOL,
+                Material.GRAY_WOOL,
+                Material.LIGHT_GRAY_WOOL,
+                Material.CYAN_WOOL,
+                Material.PURPLE_WOOL,
+                Material.BLUE_WOOL,
+                Material.BROWN_WOOL,
+                Material.GREEN_WOOL,
+                Material.RED_WOOL,
+                Material.BLACK_WOOL
+        };
+
+        String[] colors = {
+                "#FFFFFF",
+                "#FFAA00",
+                "#FF55FF",
+                "#55FFFF",
+                "#FFFF55",
+                "#55FF55",
+                "#FFAAAA",
+                "#555555",
+                "#AAAAAA",
+                "#00AAAA",
+                "#AA00AA",
+                "#5555FF",
+                "#AA5500",
+                "#00AA00",
+                "#FF5555",
+                "#000000"
+        };
+
+        for (int i = 0; i < materials.length; i++) {
+            inventory.setItem(i, item(
+                    materials[i],
+                    "§f" + colors[i],
+                    "§7Натисніть, щоб вибрати"
+            ));
+        }
+
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7Повернутися"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void openBranchConditions(Player player, String dialogueId, String nodeId) {
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        Inventory inventory = createHolder(
+                player,
+                Screen.BRANCH_CONDITIONS,
+                dialogueId,
+                nodeId,
+                null,
+                54,
+                "§8Умови гілки"
+        );
+
+        inventory.setItem(10, item(
+                Material.COMPARATOR,
+                "§eДодати умову",
+                "§7Додати умову доступності гілки"
+        ));
+
+        inventory.setItem(12, item(
+                Material.PAPER,
+                "§fУмови",
+                "§7Кількість: §e" + node.getConditions().size()
+        ));
+
+        inventory.setItem(14, item(
+                Material.REPEATER,
+                "§bЛогіка умов",
+                "§7Поточна логіка: §e" + node.getConditionLogic()
+        ));
+
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7До налаштувань гілки"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void openBranchRewards(Player player, String dialogueId, String nodeId) {
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        Inventory inventory = createHolder(
+                player,
+                Screen.BRANCH_REWARDS,
+                dialogueId,
+                nodeId,
+                null,
+                54,
+                "§8Нагороди гілки"
+        );
+
+        inventory.setItem(10, item(
+                Material.CHEST,
+                "§eДодати нагороду",
+                "§7Додати нагороду за проходження гілки"
+        ));
+
+        inventory.setItem(12, item(
+                Material.PAPER,
+                "§fНагороди",
+                "§7Кількість: §e" + node.getRewards().size()
+        ));
+
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7До налаштувань гілки"
+        ));
+
+        player.openInventory(inventory);
+    }
+
+    private void openInheritanceReset(Player player, String dialogueId, String nodeId) {
+        Inventory inventory = createHolder(
+                player,
+                Screen.INHERITANCE,
+                dialogueId,
+                nodeId,
+                null,
+                54,
+                "§8Спадкування налаштувань"
+        );
+
+        String[] keys = {
+                "text-color",
+                "background-color",
+                "text-scale",
+                "text-location",
+                "camera-location",
+                "typing-speed",
+                "typing-sound",
+                "delay",
+                "return-to-start"
+        };
+
+        for (int i = 0; i < keys.length; i++) {
+            inventory.setItem(i, item(
+                    Material.PAPER,
+                    "§e" + keys[i],
+                    "§7Натисніть, щоб скинути",
+                    "§7значення до успадкованого"
+            ));
+        }
+
+        inventory.setItem(SLOT_BACK, item(
+                Material.ARROW,
+                "§cНазад",
+                "§7До налаштувань гілки"
+        ));
+
+        player.openInventory(inventory);
+    }
+    private void createCondition(Player player, String dialogueId, String nodeId, String answerId) {
+        String conditionId = "condition_" + System.currentTimeMillis();
+
+        if (answerId != null) {
+            core.addAnswerCondition(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    conditionId,
+                    "permission",
+                    "has",
+                    "example.permission"
+            );
+
+            openConditionList(player, dialogueId, nodeId, answerId);
+            return;
+        }
+
+        core.addBranchCondition(
+                dialogueId,
+                nodeId,
+                conditionId,
+                "permission",
+                "has",
+                "example.permission"
+        );
+
+        openBranchConditions(player, dialogueId, nodeId);
+    }
+
+    private void toggleConditionLogic(
             Player player,
             String dialogueId,
             String nodeId,
             String answerId
     ) {
-        EditorHolder holder = new EditorHolder(
-                Screen.REWARD_EDITOR,
+        if (answerId != null) {
+            core.toggleAnswerConditionLogic(dialogueId, nodeId, answerId);
+            openConditionList(player, dialogueId, nodeId, answerId);
+            return;
+        }
+
+        core.toggleBranchConditionLogic(dialogueId, nodeId);
+        openBranchConditions(player, dialogueId, nodeId);
+    }
+
+    private void deleteCondition(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String conditionId
+    ) {
+        if (answerId != null) {
+            core.deleteAnswerCondition(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    conditionId
+            );
+
+            openConditionList(player, dialogueId, nodeId, answerId);
+            return;
+        }
+
+        core.deleteBranchCondition(dialogueId, nodeId, conditionId);
+        openBranchConditions(player, dialogueId, nodeId);
+    }
+
+    private void createReward(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        String rewardId = "reward_" + System.currentTimeMillis();
+
+        if (answerId != null) {
+            core.addAnswerReward(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    rewardId,
+                    "command",
+                    "say Нова нагорода",
+                    1
+            );
+
+            openRewardList(player, dialogueId, nodeId, answerId);
+            return;
+        }
+
+        core.addBranchReward(
                 dialogueId,
                 nodeId,
-                answerId,
-                0,
-                new ArrayList<>()
+                rewardId,
+                "command",
+                "say Нова нагорода",
+                1
         );
 
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                INVENTORY_SIZE,
-                Component.text("Нагороди відповіді")
-        );
-
-        holder.inventory = inventory;
-        fillBackground(inventory);
-
-        inventory.setItem(
-                11,
-                createItem(
-                        Material.EMERALD,
-                        "§eГрошова нагорода",
-                        List.of(
-                                "§7Видає гравцеві гроші.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                13,
-                createItem(
-                        Material.EXPERIENCE_BOTTLE,
-                        "§eДосвід",
-                        List.of(
-                                "§7Видає рівні або очки досвіду.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                15,
-                createItem(
-                        Material.CHEST,
-                        "§eПредмет",
-                        List.of(
-                                "§7Видає предмет гравцеві.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                29,
-                createItem(
-                        Material.COMMAND_BLOCK,
-                        "§eКоманда",
-                        List.of(
-                                "§7Виконує команду",
-                                "§7від імені консолі.",
-                                "",
-                                "§aНатисни, щоб налаштувати"
-                        )
-                )
-        );
-
-        inventory.setItem(
-                31,
-                createItem(
-                        Material.BARRIER,
-                        "§cОчистити нагороди",
-                        List.of(
-                                "§7Прибирає всі нагороди",
-                                "§7цієї відповіді."
-                        )
-                )
-        );
-
-        inventory.setItem(
-                45,
-                createItem(
-                        Material.ARROW,
-                        "§cНазад",
-                        List.of("§7Повернутися до відповіді")
-                )
-        );
-
-        player.openInventory(inventory);
+        openBranchRewards(player, dialogueId, nodeId);
     }
 
-    private void handleConditionEditorClick(
+    private void deleteReward(
             Player player,
-            EditorHolder holder,
-            int slot
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String rewardId
     ) {
-        if (slot == 45) {
-            openAnswerMenu(
-                    player,
+        if (answerId != null) {
+            core.deleteAnswerReward(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    rewardId
+            );
+
+            openRewardList(player, dialogueId, nodeId, answerId);
+            return;
+        }
+
+        core.deleteBranchReward(dialogueId, nodeId, rewardId);
+        openBranchRewards(player, dialogueId, nodeId);
+    }
+
+    private void resetBranchSetting(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String key
+    ) {
+        core.resetBranchSetting(dialogueId, nodeId, key);
+        save(dialogueId);
+
+        player.sendMessage(Component.text(
+                "Налаштування скинуто до успадкованого значення."
+        ));
+
+        openInheritanceReset(player, dialogueId, nodeId);
+    }
+
+    private void changeConditionType(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String conditionId
+    ) {
+        requestChatInput(player, "Введіть тип умови:", input -> {
+            if (answerId != null) {
+                core.updateAnswerCondition(
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        conditionId,
+                        input.trim(),
+                        null,
+                        null
+                );
+
+                openConditionMenu(
+                        player,
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        conditionId
+                );
+                return;
+            }
+
+            core.updateBranchCondition(
+                    dialogueId,
+                    nodeId,
+                    conditionId,
+                    input.trim(),
+                    null,
+                    null
+            );
+
+            openBranchConditions(player, dialogueId, nodeId);
+        });
+    }
+
+    private void changeConditionOperator(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String conditionId
+    ) {
+        requestChatInput(player, "Введіть оператор умови:", input -> {
+            if (answerId != null) {
+                core.updateAnswerCondition(
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        conditionId,
+                        null,
+                        input.trim(),
+                        null
+                );
+
+                openConditionMenu(
+                        player,
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        conditionId
+                );
+                return;
+            }
+
+            core.updateBranchCondition(
+                    dialogueId,
+                    nodeId,
+                    conditionId,
+                    null,
+                    input.trim(),
+                    null
+            );
+
+            openBranchConditions(player, dialogueId, nodeId);
+        });
+    }
+
+    private void changeConditionValue(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String conditionId
+    ) {
+        requestChatInput(player, "Введіть значення умови:", input -> {
+            if (answerId != null) {
+                core.updateAnswerCondition(
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        conditionId,
+                        null,
+                        null,
+                        input
+                );
+
+                openConditionMenu(
+                        player,
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        conditionId
+                );
+                return;
+            }
+
+            core.updateBranchCondition(
+                    dialogueId,
+                    nodeId,
+                    conditionId,
+                    null,
+                    null,
+                    input
+            );
+
+            openBranchConditions(player, dialogueId, nodeId);
+        });
+    }
+
+    private void changeRewardType(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String rewardId
+    ) {
+        requestChatInput(player, "Введіть тип нагороди (command або item):", input -> {
+            if (answerId != null) {
+                core.updateAnswerReward(
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        rewardId,
+                        input.trim(),
+                        null,
+                        null
+                );
+
+                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+                return;
+            }
+
+            core.updateBranchReward(
+                    dialogueId,
+                    nodeId,
+                    rewardId,
+                    input.trim(),
+                    null,
+                    null
+            );
+
+            openBranchRewards(player, dialogueId, nodeId);
+        });
+    }
+
+    private void changeRewardValue(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String rewardId
+    ) {
+        requestChatInput(player, "Введіть значення нагороди:", input -> {
+            if (answerId != null) {
+                core.updateAnswerReward(
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        rewardId,
+                        null,
+                        input,
+                        null
+                );
+
+                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+                return;
+            }
+
+            core.updateBranchReward(
+                    dialogueId,
+                    nodeId,
+                    rewardId,
+                    null,
+                    input,
+                    null
+            );
+
+            openBranchRewards(player, dialogueId, nodeId);
+        });
+    }
+
+    private void changeRewardAmount(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String rewardId
+    ) {
+        requestChatInput(player, "Введіть кількість предметів:", input -> {
+            try {
+                int amount = Integer.parseInt(input.trim());
+
+                if (amount < 1 || amount > 2304) {
+                    throw new NumberFormatException();
+                }
+
+                if (answerId != null) {
+                    core.updateAnswerReward(
+                            dialogueId,
+                            nodeId,
+                            answerId,
+                            rewardId,
+                            null,
+                            null,
+                            amount
+                    );
+
+                    openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+                    return;
+                }
+
+                core.updateBranchReward(
+                        dialogueId,
+                        nodeId,
+                        rewardId,
+                        null,
+                        null,
+                        amount
+                );
+
+                openBranchRewards(player, dialogueId, nodeId);
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("Введіть число від 1 до 2304."));
+                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+            }
+        });
+    }
+
+    private void captureRewardItem(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String rewardId
+    ) {
+        ItemStack hand = player.getInventory().getItemInMainHand();
+
+        if (hand.getType().isAir()) {
+            player.sendMessage(Component.text("Візьміть предмет у головну руку."));
+            openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+            return;
+        }
+
+        ItemStack copy = hand.clone();
+
+        if (answerId != null) {
+            core.setAnswerRewardItem(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    rewardId,
+                    copy
+            );
+
+            openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+            return;
+        }
+
+        core.setBranchRewardItem(
+                dialogueId,
+                nodeId,
+                rewardId,
+                copy
+        );
+
+        openBranchRewards(player, dialogueId, nodeId);
+    }
+    private void handleConfirmDeleteClick(Player player, EditorHolder holder, int slot) {
+        if (slot == 15) {
+            if (holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else if (holder.nodeId != null) {
+                openNodeMenu(player, holder.dialogueId, holder.nodeId);
+            } else {
+                openDialogueMenu(player, holder.dialogueId);
+            }
+            return;
+        }
+
+        if (slot != 11) {
+            return;
+        }
+
+        if (holder.answerId != null) {
+            core.deleteAnswer(
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId
             );
+
+            save(holder.dialogueId);
+            openAnswerList(player, holder.dialogueId, holder.nodeId, 0);
             return;
         }
 
-        String conditionType = switch (slot) {
-            case 10 -> "completed_dialogue";
-            case 12 -> "completed_branch";
-            case 14 -> "selected_answer";
-            case 16 -> "permission";
-            case 28 -> "player_tag";
-            case 30 -> "required_item";
-            case 32 -> "logic";
-            default -> null;
+        if (holder.nodeId != null) {
+            core.deleteBranch(holder.dialogueId, holder.nodeId);
+            save(holder.dialogueId);
+            openNodeList(player, holder.dialogueId, 0);
+            return;
+        }
+
+        core.deleteDialogue(holder.dialogueId);
+        save(holder.dialogueId);
+        openMainMenu(player, 0);
+    }
+
+    private void handleCommandClick(Player player, EditorHolder holder, int slot) {
+        if (slot == SLOT_BACK) {
+            if (holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+            return;
+        }
+
+        if (slot == 10) {
+            if (holder.answerId != null) {
+                addAnswerCommand(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                addBranchCommand(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+        }
+    }
+
+    private void handleBranchConditionsClick(Player player, EditorHolder holder, int slot) {
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (slot == 10) {
+            createCondition(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null
+            );
+            return;
+        }
+
+        if (slot == 14) {
+            toggleConditionLogic(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null
+            );
+        }
+    }
+
+    private void handleBranchRewardsClick(Player player, EditorHolder holder, int slot) {
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (slot == 10) {
+            createReward(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null
+            );
+        }
+    }
+
+    private void handleInheritanceClick(Player player, EditorHolder holder, int slot) {
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        String[] keys = {
+                "text-color",
+                "background-color",
+                "text-scale",
+                "text-location",
+                "camera-location",
+                "typing-speed",
+                "typing-sound",
+                "delay",
+                "return-to-start"
         };
 
-        if (conditionType == null) {
-            return;
-        }
-
-        player.sendMessage(
-                Component.text(
-                        "Вибрано тип умови: " + conditionType
-                                + ". Збереження та редагування умови "
-                                + "підключимо після узгодження моделі Condition.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    private void handleRewardEditorClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == 45) {
-            openAnswerMenu(
+        if (slot >= 0 && slot < keys.length) {
+            resetBranchSetting(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
-                    holder.answerId
+                    keys[slot]
             );
+        }
+    }
+
+    private void handleColorPickerClick(Player player, EditorHolder holder, int slot) {
+        if (slot == SLOT_BACK) {
+            if (holder.nodeId == null) {
+                openDialogueSettings(player, holder.dialogueId);
+            } else {
+                openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            }
             return;
         }
 
-        String rewardType = switch (slot) {
-            case 11 -> "money";
-            case 13 -> "experience";
-            case 15 -> "item";
-            case 29 -> "command";
-            case 31 -> "clear";
-            default -> null;
+        String[] colors = {
+                "#FFFFFF",
+                "#FFAA00",
+                "#FF55FF",
+                "#55FFFF",
+                "#FFFF55",
+                "#55FF55",
+                "#FFAAAA",
+                "#555555",
+                "#AAAAAA",
+                "#00AAAA",
+                "#AA00AA",
+                "#5555FF",
+                "#AA5500",
+                "#00AA00",
+                "#FF5555",
+                "#000000"
         };
 
-        if (rewardType == null) {
+        if (slot < 0 || slot >= colors.length) {
             return;
         }
 
-        player.sendMessage(
-                Component.text(
-                        "Вибрано тип нагороди: " + rewardType
-                                + ". Збереження нагород підключимо "
-                                + "після звірки моделі Reward.",
-                        NamedTextColor.YELLOW
-                )
-        );
+        String color = colors[slot];
+
+        if (holder.nodeId == null) {
+            core.setGlobalSetting(
+                    holder.dialogueId,
+                    holder.answerId,
+                    color
+            );
+
+            save(holder.dialogueId);
+            openDialogueSettings(player, holder.dialogueId);
+        } else {
+            core.setBranchSetting(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    color
+            );
+
+            save(holder.dialogueId);
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+        }
     }
 
-    private void handleAnswerListClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == 45) {
-            openNodeMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId
-            );
-            return;
-        }
-
-        if (slot == 48) {
-            requestNewAnswer(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId
-            );
-            return;
-        }
-
-        if (slot == 51 && holder.page > 0) {
-            openAnswerList(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.page - 1
-            );
-            return;
-        }
-
-        if (slot == 53) {
-            openAnswerList(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.page + 1
-            );
-            return;
-        }
-
-        int[] slots = createEntrySlots();
-
-        for (int i = 0; i < slots.length; i++) {
-            if (slots[i] != slot || i >= holder.entries.size()) {
-                continue;
+    private void handleSoundParametersClick(Player player, EditorHolder holder, int slot) {
+        if (slot == SLOT_BACK) {
+            if (holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
             }
-
-            String answerId = holder.entries.get(i);
-
-            openAnswerMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    answerId
-            );
-            return;
-        }
-    }
-
-    private void handleNodeAnswerListEntry(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == 31) {
-            openAnswerList(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    0
-            );
             return;
         }
 
-        if (slot == 29) {
-            requestNewAnswer(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId
-            );
-        }
-    }
+        if (slot == 11) {
+            requestChatInput(player, "Введіть гучність звуку (0.0–2.0):", input -> {
+                try {
+                    float volume = Float.parseFloat(input.trim());
 
-    private void handleSettingsScreenClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (holder.page == 1) {
-            handleAdvancedSettingsClick(
-                    player,
-                    holder,
-                    slot
-            );
-            return;
-        }
+                    if (!Float.isFinite(volume) || volume < 0 || volume > 2) {
+                        throw new NumberFormatException();
+                    }
 
-        handleSettingsMenuClick(
-                player,
-                holder,
-                slot
-        );
-    }
+                    if (holder.answerId != null) {
+                        core.setAnswerSoundVolume(
+                                holder.dialogueId,
+                                holder.nodeId,
+                                holder.answerId,
+                                volume
+                        );
+                    } else {
+                        core.setBranchSetting(
+                                holder.dialogueId,
+                                holder.nodeId,
+                                "sound-volume",
+                                String.valueOf(volume)
+                        );
+                    }
 
-    private void returnToCurrentScreen(
-            Player player,
-            EditorHolder holder
-    ) {
-        switch (holder.screen) {
-            case MAIN -> openMainMenu(
-                    player,
-                    holder.page
-            );
-
-            case DIALOGUE -> openDialogueMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.page
-            );
-
-            case NODE -> {
-                if (holder.answerId == null) {
-                    openNodeMenu(
-                            player,
-                            holder.dialogueId,
-                            holder.nodeId
-                    );
-                } else {
-                    openAnswerList(
-                            player,
-                            holder.dialogueId,
-                            holder.nodeId,
-                            holder.page
-                    );
+                    save(holder.dialogueId);
+                } catch (NumberFormatException exception) {
+                    player.sendMessage(Component.text("Введіть число від 0.0 до 2.0."));
                 }
-            }
 
-            case ANSWER -> openAnswerMenu(
+                openSoundParameters(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            });
+            return;
+        }
+
+        if (slot == 15) {
+            requestChatInput(player, "Введіть висоту тону (0.5–2.0):", input -> {
+                try {
+                    float pitch = Float.parseFloat(input.trim());
+
+                    if (!Float.isFinite(pitch) || pitch < 0.5f || pitch > 2.0f) {
+                        throw new NumberFormatException();
+                    }
+
+                    if (holder.answerId != null) {
+                        core.setAnswerSoundPitch(
+                                holder.dialogueId,
+                                holder.nodeId,
+                                holder.answerId,
+                                pitch
+                        );
+                    } else {
+                        core.setBranchSetting(
+                                holder.dialogueId,
+                                holder.nodeId,
+                                "sound-pitch",
+                                String.valueOf(pitch)
+                        );
+                    }
+
+                    save(holder.dialogueId);
+                } catch (NumberFormatException exception) {
+                    player.sendMessage(Component.text("Введіть число від 0.5 до 2.0."));
+                }
+
+                openSoundParameters(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            });
+        }
+    }
+
+    private void handleBranchConditionEditClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openBranchConditions(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (holder.answerId == null) {
+            return;
+        }
+
+        if (slot == 10) {
+            changeConditionType(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    holder.answerId
+            );
+        } else if (slot == 12) {
+            changeConditionOperator(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    holder.answerId
+            );
+        } else if (slot == 14) {
+            changeConditionValue(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    holder.answerId
+            );
+        }
+    }
+
+    private void handleBranchRewardEditClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openBranchRewards(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (holder.answerId == null) {
+            return;
+        }
+
+        if (slot == 10) {
+            changeRewardType(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    holder.answerId
+            );
+        } else if (slot == 12) {
+            changeRewardValue(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    holder.answerId
+            );
+        } else if (slot == 14) {
+            changeRewardAmount(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    holder.answerId
+            );
+        }
+    }
+    private void handleBranchConditionListClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (slot == 10) {
+            createCondition(player, holder.dialogueId, holder.nodeId, null);
+            return;
+        }
+
+        if (slot == 14) {
+            toggleConditionLogic(player, holder.dialogueId, holder.nodeId, null);
+        }
+    }
+
+    private void handleBranchRewardListClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (slot == 10) {
+            createReward(player, holder.dialogueId, holder.nodeId, null);
+        }
+    }
+
+    private void handleConditionEditClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openConditionList(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId
             );
+            return;
+        }
 
-            case SETTINGS -> {
-                if (holder.page == 1) {
-                    openAdvancedSettings(
-                            player,
-                            holder.dialogueId
-                    );
-                } else {
-                    openSettingsMenu(
-                            player,
-                            holder.dialogueId
-                    );
-                }
-            }
-
-            case SOUND_PICKER -> openSoundPicker(
+        if (slot == 10) {
+            changeConditionType(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId,
-                    holder.page
+                    holder.extraId
             );
-
-            case CONDITION_EDITOR -> openConditionEditor(
+        } else if (slot == 12) {
+            changeConditionOperator(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 14) {
+            changeConditionValue(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 16) {
+            openConditionList(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId
             );
+        } else if (slot == 50) {
+            deleteCondition(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        }
+    }
 
-            case REWARD_EDITOR -> openRewardEditor(
+    private void handleRewardEditClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openRewardList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        if (slot == 10) {
+            changeRewardType(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 12) {
+            changeRewardValue(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 14) {
+            changeRewardAmount(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 16) {
+            captureRewardItem(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 50) {
+            deleteReward(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        }
+    }
+
+    private void handleBranchCommandClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
+
+        if (slot == 10) {
+            addBranchCommand(player, holder.dialogueId, holder.nodeId);
+        }
+    }
+
+    private void handleAnswerCommandClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        if (slot == SLOT_BACK) {
+            openAnswerMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        if (slot == 10) {
+            addAnswerCommand(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
@@ -3979,229 +4959,289 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void requestAnswerDelete(
+    private void handleSoundPickerClick(
             Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId
+            EditorHolder holder,
+            int slot,
+            ClickType click
     ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            if (!value.equalsIgnoreCase("DELETE")) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Видалення відповіді скасовано.",
-                                                NamedTextColor.YELLOW
-                                        )
-                                );
+        if (slot == SLOT_BACK) {
+            if (holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+            return;
+        }
 
-                                openAnswerMenu(
-                                        player,
-                                        dialogueId,
-                                        nodeId,
-                                        answerId
-                                );
-                                return;
-                            }
+        if (slot < 0 || slot >= Sound.values().length) {
+            return;
+        }
 
-                            DialogueCore.Dialogue dialogue =
-                                    core.getDialogue(dialogueId);
+        Sound sound = Sound.values()[slot];
 
-                            if (dialogue == null) {
-                                openMainMenu(player, 0);
-                                return;
-                            }
+        if (click.isRightClick()) {
+            if (holder.answerId != null) {
+                core.setAnswerSound(
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        sound.name()
+                );
+                save(holder.dialogueId);
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else {
+                core.setBranchSetting(
+                        holder.dialogueId,
+                        holder.nodeId,
+                        "typing-sound",
+                        sound.name()
+                );
+                save(holder.dialogueId);
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+            return;
+        }
 
-                            DialogueCore.Node node =
-                                    dialogue.getNode(nodeId);
-
-                            if (node == null) {
-                                openDialogueMenu(
-                                        player,
-                                        dialogueId,
-                                        0
-                                );
-                                return;
-                            }
-
-                            boolean removed = node.getAnswers().removeIf(
-                                    answer -> answer.getId()
-                                            .equalsIgnoreCase(answerId)
-                            );
-
-                            if (removed) {
-                                core.saveDialogue(dialogueId);
-
-                                player.sendMessage(
-                                        Component.text(
-                                                "Відповідь видалено.",
-                                                NamedTextColor.GREEN
-                                        )
-                                );
-                            } else {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Не вдалося знайти відповідь.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
-
-                            openNodeMenu(
-                                    player,
-                                    dialogueId,
-                                    nodeId
-                            );
-                        },
-                        "Введи DELETE для підтвердження видалення."
-                )
-        );
-
-        player.closeInventory();
-
-        player.sendMessage(
-                Component.text(
-                        "Введи DELETE, щоб видалити відповідь. "
-                                + "Будь-який інший текст скасує операцію.",
-                        NamedTextColor.YELLOW
-                )
+        player.playSound(
+                player.getLocation(),
+                sound,
+                1.0f,
+                1.0f
         );
     }
 
-    private void requestDialogueDelete(
+    private void handleBranchPickerSelect(
             Player player,
-            String dialogueId
+            EditorHolder holder,
+            int slot
     ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            if (!value.equalsIgnoreCase("DELETE")) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Видалення діалогу скасовано.",
-                                                NamedTextColor.YELLOW
-                                        )
-                                );
+        if (slot == SLOT_BACK) {
+            openAnswerMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
 
-                                openDialogueMenu(
-                                        player,
-                                        dialogueId,
-                                        0
-                                );
-                                return;
-                            }
+        int index = entryAt(slot);
+        if (index < 0) {
+            return;
+        }
 
-                            boolean deleted =
-                                    core.deleteDialogue(dialogueId);
+        DialogueCore.Dialogue dialogue = core.getDialogue(holder.dialogueId);
+        if (dialogue == null) {
+            return;
+        }
 
-                            if (deleted) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Діалог видалено.",
-                                                NamedTextColor.GREEN
-                                        )
-                                );
-                            } else {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Не вдалося видалити діалог.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                            }
-
-                            openMainMenu(player, 0);
-                        },
-                        "Введи DELETE для підтвердження видалення діалогу."
-                )
+        List<DialogueCore.Node> nodes = new ArrayList<>(
+                dialogue.getNodes().values()
         );
 
-        player.closeInventory();
+        nodes.sort(Comparator.comparing(
+                DialogueCore.Node::getId,
+                String.CASE_INSENSITIVE_ORDER
+        ));
 
-        player.sendMessage(
-                Component.text(
-                        "Введи DELETE, щоб остаточно видалити діалог "
-                                + dialogueId + ".",
-                        NamedTextColor.RED
-                )
+        int absoluteIndex = holder.page * ENTRIES_PER_PAGE + index;
+
+        if (absoluteIndex < 0 || absoluteIndex >= nodes.size()) {
+            return;
+        }
+
+        DialogueCore.Node target = nodes.get(absoluteIndex);
+
+        core.setAnswerTarget(
+                holder.dialogueId,
+                holder.nodeId,
+                holder.answerId,
+                target.getId()
+        );
+
+        save(holder.dialogueId);
+
+        player.sendMessage(Component.text(
+                "Цільову гілку змінено на: " + target.getId()
+        ));
+
+        openAnswerMenu(
+                player,
+                holder.dialogueId,
+                holder.nodeId,
+                holder.answerId
         );
     }
 
-    private void requestDialogueRename(
+    private void handleColorSelect(
             Player player,
-            String dialogueId
+            EditorHolder holder,
+            int slot
     ) {
-        chatPrompts.put(
-                player.getUniqueId(),
-                new ChatPrompt(
-                        value -> {
-                            String newName = value.trim();
+        String[] colors = {
+                "#FFFFFF", "#FFAA00", "#FF55FF", "#55FFFF",
+                "#FFFF55", "#55FF55", "#FFAAAA", "#555555",
+                "#AAAAAA", "#00AAAA", "#AA00AA", "#5555FF",
+                "#AA5500", "#00AA00", "#FF5555", "#000000"
+        };
 
-                            if (newName.isBlank()) {
-                                player.sendMessage(
-                                        Component.text(
-                                                "Назва не може бути порожньою.",
-                                                NamedTextColor.RED
-                                        )
-                                );
-                                openDialogueMenu(
-                                        player,
-                                        dialogueId,
-                                        0
-                                );
-                                return;
-                            }
+        if (slot == SLOT_BACK) {
+            if (holder.nodeId == null) {
+                openDialogueSettings(player, holder.dialogueId);
+            } else {
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+            return;
+        }
 
-                            player.sendMessage(
-                                    Component.text(
-                                            "Нову назву прийнято: "
-                                                    + newName
-                                                    + ". Підключення перейменування "
-                                                    + "потребує методу моделі DialogueCore.",
-                                            NamedTextColor.YELLOW
-                                    )
-                            );
+        if (slot < 0 || slot >= colors.length) {
+            return;
+        }
 
-                            openDialogueMenu(
-                                    player,
-                                    dialogueId,
-                                    0
-                            );
-                        },
-                        "Введи нову назву діалогу."
-                )
-        );
+        String key = holder.answerId;
 
-        player.closeInventory();
+        if (key == null || key.isBlank()) {
+            return;
+        }
 
-        player.sendMessage(
-                Component.text(
-                        "Введи нову назву діалогу.",
-                        NamedTextColor.YELLOW
-                )
-        );
-    }
-
-    @EventHandler
-    public void onEditorInventoryDrag(InventoryDragEvent event) {
-        Inventory topInventory =
-                event.getView().getTopInventory();
-
-        if (topInventory.getHolder() instanceof EditorHolder) {
-            event.setCancelled(true);
+        if (holder.nodeId == null) {
+            core.setGlobalSetting(holder.dialogueId, key, colors[slot]);
+            save(holder.dialogueId);
+            openDialogueSettings(player, holder.dialogueId);
+        } else {
+            core.setBranchSetting(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    key,
+                    colors[slot]
+            );
+            save(holder.dialogueId);
+            openBranchSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
         }
     }
 
-    @EventHandler
-    public void onEditorPlayerQuit(
-            org.bukkit.event.player.PlayerQuitEvent event
+    private void handleInheritanceResetClick(
+            Player player,
+            EditorHolder holder,
+            int slot
     ) {
-        UUID playerId = event.getPlayer().getUniqueId();
+        if (slot == SLOT_BACK) {
+            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            return;
+        }
 
-        chatPrompts.remove(playerId);
+        String[] keys = {
+                "text-color",
+                "background-color",
+                "text-scale",
+                "text-location",
+                "camera-location",
+                "typing-speed",
+                "typing-sound",
+                "delay",
+                "return-to-start"
+        };
+
+        if (slot < 0 || slot >= keys.length) {
+            return;
+        }
+
+        resetBranchSetting(
+                player,
+                holder.dialogueId,
+                holder.nodeId,
+                keys[slot]
+        );
+    }
+
+    private void handleSoundParameters(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
+        handleSoundParametersClick(player, holder, slot);
+    }
+
+    private void handleBranchSettingsBack(
+            Player player,
+            EditorHolder holder
+    ) {
+        if (holder.nodeId == null) {
+            openDialogueMenu(player, holder.dialogueId);
+        } else {
+            openNodeMenu(player, holder.dialogueId, holder.nodeId);
+        }
+    }
+    private void handleSpecialScreenClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        switch (holder.screen) {
+            case CONFIRM_DELETE ->
+                    handleConfirmDeleteClick(player, holder, slot);
+
+            case COMMANDS ->
+                    handleCommandClick(player, holder, slot);
+
+            case BRANCH_CONDITIONS ->
+                    handleBranchConditionsClick(player, holder, slot);
+
+            case BRANCH_REWARDS ->
+                    handleBranchRewardsClick(player, holder, slot);
+
+            case INHERITANCE ->
+                    handleInheritanceClick(player, holder, slot);
+
+            case COLOR_PICKER ->
+                    handleColorPickerClick(player, holder, slot);
+
+            case SOUND_PARAMETERS ->
+                    handleSoundParametersClick(player, holder, slot);
+
+            case CONDITION ->
+                    handleConditionEditClick(player, holder, slot);
+
+            case REWARD ->
+                    handleRewardEditClick(player, holder, slot);
+
+            case BRANCH_PICKER ->
+                    handleBranchPickerClick(player, holder, slot, click);
+
+            case SOUND_PICKER ->
+                    handleSoundClick(player, holder, slot, click);
+
+            default -> {
+            }
+        }
     }
 
     private boolean isEditorInventory(Inventory inventory) {
@@ -4217,177 +5257,277 @@ public final class DialogueEditor implements Listener {
         return (EditorHolder) inventory.getHolder();
     }
 
-    private void reopenEditor(
-            Player player,
-            EditorHolder holder
-    ) {
-        if (holder == null) {
-            openMainMenu(player, 0);
-            return;
-        }
-
+    private void reopenCurrentScreen(Player player, EditorHolder holder) {
         switch (holder.screen) {
-            case MAIN ->
-                    openMainMenu(player, holder.page);
+            case MAIN -> openMainMenu(player, holder.page);
 
-            case DIALOGUE ->
-                    openDialogueMenu(
+            case DIALOGUE -> openDialogueMenu(
+                    player,
+                    holder.dialogueId
+            );
+
+            case NODE_LIST -> openNodeList(
+                    player,
+                    holder.dialogueId,
+                    holder.page
+            );
+
+            case NODE -> openNodeMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case ANSWER_LIST -> openAnswerList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page
+            );
+
+            case ANSWER -> {
+                if (holder.answerId == null) {
+                    openAnswerList(
                             player,
                             holder.dialogueId,
+                            holder.nodeId,
                             holder.page
                     );
-
-            case NODE ->
-                    openNodeMenu(
-                            player,
-                            holder.dialogueId,
-                            holder.nodeId
-                    );
-
-            case ANSWER ->
+                } else {
                     openAnswerMenu(
                             player,
                             holder.dialogueId,
                             holder.nodeId,
                             holder.answerId
                     );
+                }
+            }
 
-            case SETTINGS ->
-                    openSettingsMenu(
-                            player,
-                            holder.dialogueId
-                    );
-
-            case SOUND_PICKER ->
-                    openSoundPicker(
-                            player,
-                            holder.dialogueId,
-                            holder.nodeId,
-                            holder.answerId,
-                            holder.page
-                    );
-
-            case NODES ->
-                    openDialogueMenu(
-                            player,
-                            holder.dialogueId,
-                            holder.page
-                    );
-
-            case CONDITION_EDITOR, REWARD_EDITOR ->
-                    openNodeMenu(
+            case SETTINGS -> {
+                if (holder.nodeId == null) {
+                    openDialogueSettings(player, holder.dialogueId);
+                } else {
+                    openBranchSettings(
                             player,
                             holder.dialogueId,
                             holder.nodeId
                     );
+                }
+            }
+
+            case CONDITION_LIST -> openConditionList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+
+            case REWARD_LIST -> openRewardList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+
+            case SOUND_PICKER -> openSoundPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page
+            );
+
+            case BRANCH_PICKER -> openBranchPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page
+            );
+
+            default -> handleSpecialScreenClick(
+                    player,
+                    holder,
+                    -1,
+                    ClickType.UNKNOWN
+            );
         }
     }
 
-    private boolean isValidId(String value) {
-        if (value == null || value.isBlank()) {
-            return false;
+    private void closeEditor(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
         }
 
-        return value.matches("[a-zA-Z0-9_-]{1,48}");
+        player.closeInventory();
     }
 
-    private String normalizeId(String value) {
-        if (value == null) {
-            return "";
+    private void sendEditorMessage(Player player, String message) {
+        if (player == null || !player.isOnline()) {
+            return;
         }
 
-        return value.trim().toLowerCase(Locale.ROOT);
+        player.sendMessage(Component.text(message));
     }
 
-    private boolean isValidHexColor(String value) {
-        if (value == null) {
-            return false;
-        }
-
-        String color = value.trim();
-
-        if (color.startsWith("#")) {
-            color = color.substring(1);
-        }
-
-        return color.matches("(?i)[0-9a-f]{6}");
+    private boolean validDialogue(String dialogueId) {
+        return dialogueId != null
+                && !dialogueId.isBlank()
+                && core.getDialogue(dialogueId) != null;
     }
 
-    private boolean isValidNumber(String value) {
-        if (value == null || value.isBlank()) {
-            return false;
-        }
-
-        try {
-            double number = Double.parseDouble(value.trim());
-            return Double.isFinite(number);
-        } catch (NumberFormatException exception) {
-            return false;
-        }
+    private boolean validBranch(String dialogueId, String nodeId) {
+        return validDialogue(dialogueId)
+                && nodeId != null
+                && core.getDialogue(dialogueId).getNode(nodeId) != null;
     }
 
-    private boolean isValidInteger(
-            String value,
-            int minimum,
-            int maximum
+    private boolean validAnswer(
+            String dialogueId,
+            String nodeId,
+            String answerId
     ) {
-        if (value == null || value.isBlank()) {
+        if (!validBranch(dialogueId, nodeId) || answerId == null) {
             return false;
         }
 
-        try {
-            int number = Integer.parseInt(value.trim());
+        return core.getAnswer(dialogueId, nodeId, answerId) != null;
+    }
 
-            return number >= minimum
-                    && number <= maximum;
-        } catch (NumberFormatException exception) {
-            return false;
+    private void refreshAfterMutation(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        save(dialogueId);
+
+        if (answerId != null) {
+            openAnswerMenu(player, dialogueId, nodeId, answerId);
+        } else if (nodeId != null) {
+            openNodeMenu(player, dialogueId, nodeId);
+        } else {
+            openDialogueMenu(player, dialogueId);
         }
     }
 
-    private String normalizeColor(String value) {
-        if (value == null) {
+    private String cleanInput(String input) {
+        if (input == null) {
             return "";
         }
 
-        String color = value.trim();
+        return input.trim();
+    }
 
-        if (color.startsWith("#")) {
-            color = color.substring(1);
+    private String safeId(String input, String fallback) {
+        String id = normalizeId(input);
+
+        if (id.isBlank()) {
+            return fallback;
         }
 
-        if (color.matches("(?i)[0-9a-f]{6}")) {
-            return "#" + color.toUpperCase(Locale.ROOT);
+        return id;
+    }
+
+    private int clampPage(int page, int size) {
+        if (size <= 0) {
+            return 0;
         }
 
-        return value.trim();
+        int maxPage = Math.max(
+                0,
+                (size - 1) / ENTRIES_PER_PAGE
+        );
+
+        return Math.max(0, Math.min(page, maxPage));
     }
 
-    private void sendError(Player player, String message) {
-        player.sendMessage(
-                Component.text(
-                        message,
-                        NamedTextColor.RED
-                )
+    private void playEditorClick(Player player) {
+        player.playSound(
+                player.getLocation(),
+                Sound.UI_BUTTON_CLICK,
+                0.5f,
+                1.2f
         );
     }
 
-    private void sendSuccess(Player player, String message) {
-        player.sendMessage(
-                Component.text(
-                        message,
-                        NamedTextColor.GREEN
-                )
+    private void playEditorError(Player player) {
+        player.playSound(
+                player.getLocation(),
+                Sound.BLOCK_NOTE_BLOCK_BASS,
+                0.7f,
+                0.7f
         );
     }
 
-    private void sendInfo(Player player, String message) {
-        player.sendMessage(
-                Component.text(
-                        message,
-                        NamedTextColor.YELLOW
-                )
+    private void playEditorSuccess(Player player) {
+        player.playSound(
+                player.getLocation(),
+                Sound.ENTITY_EXPERIENCE_ORB_PICKUP,
+                0.6f,
+                1.3f
         );
+    }
+
+    private void updateInventoryTitle(Player player, String title) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        Inventory inventory = player.getOpenInventory().getTopInventory();
+
+        if (!isEditorInventory(inventory)) {
+            return;
+        }
+
+        player.openInventory(Bukkit.createInventory(
+                inventory.getHolder(),
+                inventory.getSize(),
+                Component.text(title)
+        ));
+    }
+
+    private void ensureMainBranch(String dialogueId) {
+        DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
+
+        if (dialogue == null) {
+            return;
+        }
+
+        if (dialogue.getNode("start") == null) {
+            core.createBranch(dialogueId, "start");
+        }
+    }
+
+    private void ensureDialogueSaved(String dialogueId) {
+        if (validDialogue(dialogueId)) {
+            core.saveDialogue(dialogueId);
+        }
+    }
+
+    private void ensureBranchSaved(String dialogueId, String nodeId) {
+        if (validBranch(dialogueId, nodeId)) {
+            core.saveDialogue(dialogueId);
+        }
+    }
+
+    private void ensureAnswerSaved(
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        if (validAnswer(dialogueId, nodeId, answerId)) {
+            core.saveDialogue(dialogueId);
+        }
+    }
+
+    private void clearPlayerPrompt(UUID playerId) {
+        if (playerId != null) {
+            chatPrompts.remove(playerId);
+        }
+    }
+
+    private void clearAllPrompts() {
+        chatPrompts.clear();
     }
 }
-  
