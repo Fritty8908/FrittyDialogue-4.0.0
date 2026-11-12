@@ -1092,6 +1092,7 @@ public final class DialogueCore {
         return result;
     }
 
+
     private ConditionGroup deserializeConditions(
             List<Map<?, ?>> values
     ) {
@@ -1107,15 +1108,15 @@ public final class DialogueCore {
             }
 
             String type = String.valueOf(
-                    value.getOrDefault("type", "permission")
+                    value.containsKey("type") ? value.get("type") : "permission"
             );
 
             String expected = String.valueOf(
-                    value.getOrDefault("value", "")
+                    value.containsKey("value") ? value.get("value") : ""
             );
 
             String operator = String.valueOf(
-                    value.getOrDefault("operator", "equals")
+                    value.containsKey("operator") ? value.get("operator") : "equals"
             );
 
             group.add(new Condition(
