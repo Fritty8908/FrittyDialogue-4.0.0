@@ -279,7 +279,11 @@ public final class DialogueCore {
         );
 
         dialogue.setRootNode("start");
-
+        if (copyFrom == null || copyFrom.isBlank()) {
+            dialogue.addNode(
+                    new Node("start", "start")
+            );
+        }
         if (copyFrom != null && !copyFrom.isBlank()) {
             Dialogue source = getDialogue(copyFrom);
 
