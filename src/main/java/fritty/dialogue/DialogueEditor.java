@@ -2045,7 +2045,6 @@ public final class DialogueEditor implements Listener {
     }
 
     @EventHandler
-    @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         // Chat prompts must remain active after closing the editor.
     }
@@ -2098,6 +2097,10 @@ public final class DialogueEditor implements Listener {
             );
 
             case BRANCH_PICKER -> handleBranchPickerClick(
+                    player, holder, slot, click
+            );
+
+            default -> handleSpecialScreenClick(
                     player, holder, slot, click
             );
         }
