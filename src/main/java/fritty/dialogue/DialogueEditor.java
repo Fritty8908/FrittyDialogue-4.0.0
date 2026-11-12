@@ -86,7 +86,20 @@ public final class DialogueEditor implements Listener {
         SOUND_PICKER,
         CONDITION_EDITOR,
         REWARD_EDITOR,
-        BRANCH_PICKER
+        BRANCH_PICKER,
+        CONFIRM_DELETE,
+        COMMANDS,
+        SOUND_PARAMETERS,
+        COLOR_PICKER,
+        BRANCH_CONDITIONS,
+        BRANCH_REWARDS,
+        INHERITANCE,
+        NODE_LIST,
+        ANSWER_LIST,
+        CONDITION_LIST,
+        REWARD_LIST,
+        CONDITION,
+        REWARD
     }
 
     private static final class EditorHolder
@@ -96,8 +109,8 @@ public final class DialogueEditor implements Listener {
         private final String dialogueId;
         private final String nodeId;
         private final String answerId;
+        private String extraId;
         private final int page;
-
         private final List<String> entries =
                 new ArrayList<>();
 
@@ -208,6 +221,32 @@ public final class DialogueEditor implements Listener {
         fillBackground(holder.inventory);
         return holder;
     }
+    private Inventory createHolder(
+            Player player,
+            Screen screen,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int size,
+            String title
+    ) {
+        EditorHolder holder = new EditorHolder(
+                screen,
+                dialogueId,
+                nodeId,
+                answerId,
+                0
+        );
+
+        holder.inventory = Bukkit.createInventory(
+                holder,
+                size,
+                Component.text(title, NamedTextColor.DARK_RED)
+        );
+
+        fillBackground(holder.inventory);
+        return holder.inventory;
+        }
 
     private void open(Player player, EditorHolder holder) {
         if (player == null || !player.isOnline()) {
