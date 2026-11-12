@@ -3648,7 +3648,7 @@ public final class DialogueEditor implements Listener {
     }
 
     private void captureTextLocation(Player player, String dialogueId, String nodeId) {
-        Location location = player.getLocation();
+        Location location = player.getEyeLocation();
 
         String value = location.getWorld().getName()
                 + "," + location.getX()
