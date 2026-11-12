@@ -1158,38 +1158,45 @@ public final class DialogueCore {
         return result;
     }
 
-    private List<Reward> deserializeRewards(
-            List<Map<?, ?>> values
-    ) {
-        List<Reward> rewards = new ArrayList<>();
+private List<Reward> deserializeRewards(
+        List<Map<?, ?>> values
+) {
+    List<Reward> rewards = new ArrayList<>();
 
-        if (values == null) {
-            return rewards;
+    if (values == null) {
+        return rewards;
+    }
+
+    for (Map<?, ?> value : values) {
+        if (value == null) {
+            continue;
         }
 
-        for (Map<?, ?> value : values) {
-            if (value == null) {
-                continue;
-            }
+        String type = String.valueOf(
+                value.containsKey("type") ? value.get("type") : "command"
+        );
 
-            String type = String.valueOf(
-                    value.getOrDefault("type", "command")
-            );
+        String rewardValue = String.valueOf(
+                value.containsKey("value") ? value.get("value") : ""
+        );
 
-            String rewardValue = String.valueOf(
-                    value.getOrDefault("value", "")
-            );
+        int amount = 1;
 
-            int amount = 1;
+        Object amountValue = value.get("amount");
 
-            Object amountValue = value.get("amount");
+        if (amountValue instanceof Number number) {
+            amount = Math.max(1, number.intValue());
+        }
 
-            if (amountValue instanceof Number number) {
-                amount = Math.max(1, number.intValue());
-            }
+        rewards.add(new Reward(
+                type,
+                rewardValue,
+                amount
+        ));
+    }
 
-            rewards.add(new Reward(
-                    type,
+    return rewards;
+}
                     rewardValue,
                     amount
             ));
