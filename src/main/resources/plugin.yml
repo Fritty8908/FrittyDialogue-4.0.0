@@ -1,0 +1,26 @@
+
+name: FrittyDialogue
+version: 4.0.0
+main: fritty.dialogue.FrittyDialogue
+api-version: '26.2'
+
+authors:
+  - Fritty8908
+
+softdepend:
+  - LuckPerms
+  - Citizens
+
+commands:
+  frittydialogue:
+    description: Main FrittyDialogue command
+    usage: /fd
+    aliases:
+      - fd
+      - freedialog
+
+permissions:
+  frittydialogue.admin:
+    description: Allows editing and managing dialogues
+    default: op
+    
