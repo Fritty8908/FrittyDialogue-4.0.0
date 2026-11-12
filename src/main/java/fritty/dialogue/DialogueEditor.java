@@ -761,22 +761,40 @@ public final class DialogueEditor implements Listener {
             );
         }
 
+
         holder.inventory.setItem(
-                4,
+                0,
                 createItem(
-                        Material.BOOK,
+                        Material.WRITABLE_BOOK,
                         Component.text(
-                                dialogueId,
-                                NamedTextColor.GOLD
+                                "Створити гілку",
+                                NamedTextColor.GREEN
                         ),
                         List.of(
                                 Component.text(
-                                        "Керування діалогом",
+                                        "Створити нову гілку діалогу",
+                                        NamedTextColor.GRAY
+                                )
+                        )
+                )
+        );
+
+        holder.inventory.setItem(
+                4,
+                createItem(
+                        Material.WRITABLE_BOOK,
+                        Component.text(
+                                "Налаштування діалогу",
+                                NamedTextColor.LIGHT_PURPLE
+                        ),
+                        List.of(
+                                Component.text(
+                                        "Загальні параметри діалогу",
                                         NamedTextColor.GRAY
                                 ),
                                 Component.text(
-                                        "Гілок: " + nodeIds.size(),
-                                        NamedTextColor.YELLOW
+                                        "Камера, текст, звук та інше",
+                                        NamedTextColor.GRAY
                                 )
                         )
                 )
@@ -800,37 +818,16 @@ public final class DialogueEditor implements Listener {
         );
 
         holder.inventory.setItem(
-                48,
+                53,
                 createItem(
-                        Material.WRITABLE_BOOK,
+                        Material.ARROW,
                         Component.text(
-                                "Створити гілку",
-                                NamedTextColor.GREEN
+                                "Наступна сторінка",
+                                NamedTextColor.YELLOW
                         ),
                         List.of(
                                 Component.text(
-                                        "Створити нову гілку діалогу",
-                                        NamedTextColor.GRAY
-                                )
-                        )
-                )
-        );
-
-        holder.inventory.setItem(
-                50,
-                createItem(
-                    Material.WRITABLE_BOOK,
-                        Component.text(
-                                "Налаштування діалогу",
-                                NamedTextColor.LIGHT_PURPLE
-                        ),
-                        List.of(
-                                Component.text(
-                                        "Загальні параметри діалогу",
-                                        NamedTextColor.GRAY
-                                ),
-                                Component.text(
-                                        "Камера, текст, звук та інше",
+                                        "Сторінка " + (page + 1),
                                         NamedTextColor.GRAY
                                 )
                         )
