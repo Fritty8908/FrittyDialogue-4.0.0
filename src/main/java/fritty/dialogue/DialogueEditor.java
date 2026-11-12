@@ -1447,7 +1447,7 @@ public final class DialogueEditor implements Listener {
             String conditionId
     ) {
         EditorHolder holder = createHolder(
-                Screen.CONDITION_EDITOR,
+                Screen.CONDITION,
                 dialogueId,
                 nodeId,
                 answerId,
@@ -1639,7 +1639,7 @@ public final class DialogueEditor implements Listener {
             String rewardId
     ) {
         EditorHolder holder = createHolder(
-                Screen.REWARD_EDITOR,
+                Screen.REWARD,
                 dialogueId,
                 nodeId,
                 answerId,
@@ -4636,12 +4636,14 @@ public final class DialogueEditor implements Listener {
                         holder.nodeId,
                         holder.answerId
                 );
-            } else {
+            } else if (holder.nodeId != null) {
                 openBranchSettings(
                         player,
                         holder.dialogueId,
                         holder.nodeId
                 );
+            } else {
+                openDialogueSettings(player, holder.dialogueId);
             }
             return;
         }
@@ -4662,15 +4664,20 @@ public final class DialogueEditor implements Listener {
                                 holder.answerId,
                                 volume
                         );
-                    } else {
+                    } else if (holder.nodeId != null) {
                         core.setBranchSetting(
                                 holder.dialogueId,
                                 holder.nodeId,
                                 "sound-volume",
                                 String.valueOf(volume)
                         );
+                    } else {
+                        core.setGlobalSetting(
+                                holder.dialogueId,
+                                "sound-volume",
+                                String.valueOf(volume)
+                        );
                     }
-
                     save(holder.dialogueId);
                 } catch (NumberFormatException exception) {
                     player.sendMessage(Component.text("Введіть число від 0.0 до 2.0."));
@@ -4702,10 +4709,16 @@ public final class DialogueEditor implements Listener {
                                 holder.answerId,
                                 pitch
                         );
-                    } else {
+                    } else if (holder.nodeId != null) {
                         core.setBranchSetting(
                                 holder.dialogueId,
                                 holder.nodeId,
+                                "sound-pitch",
+                                String.valueOf(pitch)
+                        );
+                    } else {
+                        core.setGlobalSetting(
+                                holder.dialogueId,
                                 "sound-pitch",
                                 String.valueOf(pitch)
                         );
