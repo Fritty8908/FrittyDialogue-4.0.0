@@ -2658,7 +2658,8 @@ public final class DialogueEditor implements Listener {
             );
 
             case 19 -> requestGlobalNumber(
-                    player, holder.dialogueId, "typing-speed"
+                    player, holder.dialogueId,
+                    "typing-speed", "Швидкість друку"
             );
 
             case 20 -> toggleGlobalSetting(
@@ -2666,19 +2667,22 @@ public final class DialogueEditor implements Listener {
             );
 
             case 21 -> openSoundParameters(
-                    player, holder.dialogueId
+                    player, holder.dialogueId, null, null
             );
 
             case 22 -> requestGlobalNumber(
-                    player, holder.dialogueId, "text-scale"
+                    player, holder.dialogueId,
+                    "text-scale", "Масштаб тексту"
             );
 
             case 23 -> requestGlobalNumber(
-                    player, holder.dialogueId, "window-width"
+                    player, holder.dialogueId,
+                    "window-width", "Ширина вікна"
             );
 
             case 24 -> requestGlobalNumber(
-                    player, holder.dialogueId, "background-alpha"
+                    player, holder.dialogueId,
+                    "background-alpha", "Прозорість фону"
             );
 
             case 25 -> toggleGlobalSetting(
@@ -2720,7 +2724,7 @@ public final class DialogueEditor implements Listener {
 
             case 12 -> requestBranchNumber(
                     player, holder.dialogueId,
-                    holder.nodeId, "text-scale"
+                    holder.nodeId, "text-scale", "Масштаб тексту"
             );
 
             case 13 -> captureTextLocation(
@@ -2735,7 +2739,7 @@ public final class DialogueEditor implements Listener {
 
             case 15 -> requestBranchNumber(
                     player, holder.dialogueId,
-                    holder.nodeId, "typing-speed"
+                    holder.nodeId, "typing-speed", "Швидкість друку"
             );
 
             case 16 -> openSoundPicker(
