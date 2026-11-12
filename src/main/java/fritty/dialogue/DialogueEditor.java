@@ -630,7 +630,11 @@ public final class DialogueEditor implements Listener {
                 )
         );
 
-        openMainMenu(player, 0);
+        openNodeMenu(
+                player,
+                name,
+                "start"
+        );
     }
 
     /*
