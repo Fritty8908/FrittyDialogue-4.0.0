@@ -1276,15 +1276,6 @@ public final class DialogueEditor implements Listener {
                 )
         );
 
-        holder.inventory.setItem(
-                SLOT_BACK,
-                item(
-                        Material.ARROW,
-                        "Назад до гілки",
-                        NamedTextColor.YELLOW
-                )
-        );
-
         open(player, holder);
     }
     // ============================================================
