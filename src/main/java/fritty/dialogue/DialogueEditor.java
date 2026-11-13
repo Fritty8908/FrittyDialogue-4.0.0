@@ -1611,6 +1611,52 @@ public final class DialogueEditor implements Listener {
             String answerId,
             String rewardId
     ) {
+        DialogueCore.Node node = getNode(dialogueId, nodeId);
+
+        if (node == null) {
+            openNodeList(player, dialogueId, 0);
+            return;
+        }
+
+        List<DialogueCore.Reward> rewards;
+
+        if (answerId != null) {
+            DialogueCore.Answer answer = node.getAnswer(answerId);
+
+            if (answer == null) {
+                openNodeMenu(player, dialogueId, nodeId);
+                return;
+            }
+
+            rewards = answer.getRewards();
+        } else {
+            rewards = node.getRewards();
+        }
+
+        DialogueCore.Reward reward = null;
+
+        for (DialogueCore.Reward candidate : rewards) {
+            if (candidate.getId().equals(rewardId)) {
+                reward = candidate;
+                break;
+            }
+        }
+
+        if (reward == null) {
+            if (answerId == null) {
+                openBranchRewards(player, dialogueId, nodeId);
+            } else {
+                openRewardList(
+                        player,
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        0
+                );
+            }
+            return;
+        }
+
         EditorHolder holder = createHolder(
                 Screen.REWARD,
                 dialogueId,
@@ -1619,6 +1665,7 @@ public final class DialogueEditor implements Listener {
                 0,
                 "Редагування нагороди"
         );
+
         holder.extraId = rewardId;
 
         holder.inventory.setItem(
@@ -1627,7 +1674,8 @@ public final class DialogueEditor implements Listener {
                         Material.CHEST,
                         "Тип нагороди",
                         NamedTextColor.YELLOW,
-                        "Команда або предмет"
+                        "Поточний тип: " + reward.getType().name(),
+                        "Натисніть, щоб змінити"
                 )
         );
 
@@ -1635,9 +1683,10 @@ public final class DialogueEditor implements Listener {
                 12,
                 item(
                         Material.PAPER,
-                        "Значення",
+                        "Значення нагороди",
                         NamedTextColor.YELLOW,
-                        "Задати команду або параметри предмета"
+                        "Поточне значення: " + reward.getValue(),
+                        "Натисніть, щоб змінити"
                 )
         );
 
@@ -1648,6 +1697,17 @@ public final class DialogueEditor implements Listener {
                         "Предмет із руки",
                         NamedTextColor.YELLOW,
                         "Скопіювати предмет з усіма властивостями"
+                )
+        );
+
+        holder.inventory.setItem(
+                15,
+                item(
+                        Material.COMPARATOR,
+                        "Кількість предметів",
+                        NamedTextColor.YELLOW,
+                        "Поточна кількість: " + reward.getAmount(),
+                        "Натисніть, щоб змінити"
                 )
         );
 
@@ -4943,6 +5003,14 @@ public final class DialogueEditor implements Listener {
             );
         } else if (slot == 14) {
             captureRewardItem(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+        } else if (slot == 15) {
+            changeRewardAmount(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
