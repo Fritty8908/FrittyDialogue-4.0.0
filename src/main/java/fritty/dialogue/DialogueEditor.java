@@ -1482,7 +1482,6 @@ public final class DialogueEditor implements Listener {
     // ============================================================
     // REWARD EDITOR
     // ============================================================
-
     private void openRewardList(
             Player player,
             String dialogueId,
@@ -1490,15 +1489,6 @@ public final class DialogueEditor implements Listener {
             String answerId,
             int page
     ) {
-        EditorHolder holder = createHolder(
-                Screen.REWARD_EDITOR,
-                dialogueId,
-                nodeId,
-                answerId,
-                page,
-                "Нагороди"
-        );
-
         DialogueCore.Node node = getNode(dialogueId, nodeId);
 
         if (node == null) {
@@ -1506,16 +1496,26 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        DialogueCore.Answer answer =
-                answerId == null ? null : node.getAnswer(answerId);
+        List<DialogueCore.Reward> rewards;
+        String menuTitle;
+        String backTitle;
 
-        if (answer == null) {
-            openNodeMenu(player, dialogueId, nodeId);
-            return;
+        if (answerId != null) {
+            DialogueCore.Answer answer = node.getAnswer(answerId);
+
+            if (answer == null) {
+                openNodeMenu(player, dialogueId, nodeId);
+                return;
+            }
+
+            rewards = new ArrayList<>(answer.getRewards());
+            menuTitle = "Нагороди • " + answerId;
+            backTitle = "Назад до відповіді";
+        } else {
+            rewards = new ArrayList<>(node.getRewards());
+            menuTitle = "Нагороди гілки • " + nodeId;
+            backTitle = "Назад до гілки";
         }
-
-        List<DialogueCore.Reward> rewards =
-                new ArrayList<>(answer.getRewards());
 
         int maxPage = Math.max(
                 0,
@@ -1524,13 +1524,13 @@ public final class DialogueEditor implements Listener {
 
         page = Math.max(0, Math.min(page, maxPage));
 
-        holder = createHolder(
+        EditorHolder holder = createHolder(
                 Screen.REWARD_EDITOR,
                 dialogueId,
                 nodeId,
                 answerId,
                 page,
-                "Нагороди • " + answerId
+                menuTitle
         );
 
         int[] slots = createEntrySlots();
@@ -1544,7 +1544,7 @@ public final class DialogueEditor implements Listener {
         for (int i = start; i < end; i++) {
             DialogueCore.Reward reward = rewards.get(i);
 
-            holder.entries.add(String.valueOf(i));
+            holder.entries.add(reward.getId());
 
             holder.inventory.setItem(
                     slots[i - start],
@@ -1552,6 +1552,7 @@ public final class DialogueEditor implements Listener {
                             Material.CHEST,
                             reward.getType().name(),
                             NamedTextColor.YELLOW,
+                            "ID: " + reward.getId(),
                             "Значення: " + reward.getValue(),
                             "Кількість: " + reward.getAmount(),
                             "ЛКМ — редагувати",
@@ -1573,7 +1574,7 @@ public final class DialogueEditor implements Listener {
                 SLOT_BACK,
                 item(
                         Material.ARROW,
-                        "Назад до відповіді",
+                        backTitle,
                         NamedTextColor.YELLOW
                 )
         );
@@ -1602,7 +1603,7 @@ public final class DialogueEditor implements Listener {
 
         open(player, holder);
     }
-
+    
     private void openRewardMenu(
             Player player,
             String dialogueId,
@@ -3023,10 +3024,6 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (holder.answerId == null) {
-            return;
-        }
-
         if (slot == SLOT_PREVIOUS && isLeft(click)) {
             openRewardList(
                     player,
@@ -3900,42 +3897,18 @@ public final class DialogueEditor implements Listener {
         player.openInventory(inventory);
     }
 
-    private void openBranchRewards(Player player, String dialogueId, String nodeId) {
-        DialogueCore.Node node = getNode(dialogueId, nodeId);
-        if (node == null) {
-            openNodeList(player, dialogueId, 0);
-            return;
-        }
-
-        Inventory inventory = createHolder(
+    private void openBranchRewards(
+            Player player,
+            String dialogueId,
+            String nodeId
+    ) {
+        openRewardList(
                 player,
-                Screen.BRANCH_REWARDS,
                 dialogueId,
                 nodeId,
                 null,
-                54,
-                "§8Нагороди гілки"
+                0
         );
-
-        inventory.setItem(10, item(
-                Material.CHEST,
-                "§eДодати нагороду",
-                "§7Додати нагороду за проходження гілки"
-        ));
-
-        inventory.setItem(12, item(
-                Material.PAPER,
-                "§fНагороди",
-                "§7Кількість: §e" + node.getRewards().size()
-        ));
-
-        inventory.setItem(SLOT_BACK, item(
-                Material.ARROW,
-                "§cНазад",
-                "§7До налаштувань гілки"
-        ));
-
-        player.openInventory(inventory);
     }
 
     private void openInheritanceReset(Player player, String dialogueId, String nodeId) {
