@@ -4248,31 +4248,43 @@ public final class DialogueEditor implements Listener {
             String rewardId
     ) {
         requestChatInput(player, "Введіть тип нагороди (command або item):", input -> {
+            String type;
+
+            if (input.trim().equalsIgnoreCase("command")) {
+                type = "command";
+            } else if (input.trim().equalsIgnoreCase("item")) {
+                type = "item";
+            } else {
+                player.sendMessage(Component.text(
+                        "Доступні типи: command або item."
+                ));
+                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
+                return;
+            }
+
             if (answerId != null) {
                 core.updateAnswerReward(
                         dialogueId,
                         nodeId,
                         answerId,
                         rewardId,
-                        input.trim(),
+                        type,
                         null,
                         null
                 );
-
-                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-                return;
+            } else {
+                core.updateBranchReward(
+                        dialogueId,
+                        nodeId,
+                        rewardId,
+                        type,
+                        null,
+                        null
+                );
             }
 
-            core.updateBranchReward(
-                    dialogueId,
-                    nodeId,
-                    rewardId,
-                    input.trim(),
-                    null,
-                    null
-            );
-
-            openBranchRewards(player, dialogueId, nodeId);
+            save(dialogueId);
+            openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
         });
     }
 
@@ -4294,21 +4306,19 @@ public final class DialogueEditor implements Listener {
                         input,
                         null
                 );
-
-                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-                return;
+            } else {
+                core.updateBranchReward(
+                        dialogueId,
+                        nodeId,
+                        rewardId,
+                        null,
+                        input,
+                        null
+                );
             }
 
-            core.updateBranchReward(
-                    dialogueId,
-                    nodeId,
-                    rewardId,
-                    null,
-                    input,
-                    null
-            );
-
-            openBranchRewards(player, dialogueId, nodeId);
+            save(dialogueId);
+            openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
         });
     }
 
@@ -4337,21 +4347,20 @@ public final class DialogueEditor implements Listener {
                             null,
                             amount
                     );
-
-                    openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-                    return;
+                } else {
+                    core.updateBranchReward(
+                            dialogueId,
+                            nodeId,
+                            rewardId,
+                            null,
+                            null,
+                            amount
+                    );
                 }
 
-                core.updateBranchReward(
-                        dialogueId,
-                        nodeId,
-                        rewardId,
-                        null,
-                        null,
-                        amount
-                );
+                save(dialogueId);
+                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
 
-                openBranchRewards(player, dialogueId, nodeId);
             } catch (NumberFormatException exception) {
                 player.sendMessage(Component.text("Введіть число від 1 до 2304."));
                 openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
@@ -4384,19 +4393,17 @@ public final class DialogueEditor implements Listener {
                     rewardId,
                     copy
             );
-
-            openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-            return;
+        } else {
+            core.setBranchRewardItem(
+                    dialogueId,
+                    nodeId,
+                    rewardId,
+                    copy
+            );
         }
 
-        core.setBranchRewardItem(
-                dialogueId,
-                nodeId,
-                rewardId,
-                copy
-        );
-
-        openBranchRewards(player, dialogueId, nodeId);
+        save(dialogueId);
+        openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
     }
     private void handleConfirmDeleteClick(Player player, EditorHolder holder, int slot) {
         if (slot == 15) {
