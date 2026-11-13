@@ -1668,6 +1668,16 @@ public final class DialogueEditor implements Listener {
                 )
         );
 
+        holder.inventory.setItem(
+                50,
+                item(
+                        Material.BARRIER,
+                        "Видалити нагороду",
+                        NamedTextColor.RED,
+                        "Видалити цю нагороду"
+                )
+        );
+
         open(player, holder);
     }
 
@@ -4094,11 +4104,24 @@ public final class DialogueEditor implements Listener {
                     rewardId
             );
 
-            openRewardList(player, dialogueId, nodeId, answerId, 0);
+            save(dialogueId);
+            openRewardList(
+                    player,
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    0
+            );
             return;
         }
 
-        core.deleteBranchReward(dialogueId, nodeId, rewardId);
+        core.deleteBranchReward(
+                dialogueId,
+                nodeId,
+                rewardId
+        );
+
+        save(dialogueId);
         openBranchRewards(player, dialogueId, nodeId);
     }
 
