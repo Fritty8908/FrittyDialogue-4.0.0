@@ -86,6 +86,7 @@ public final class DialogueEditor implements Listener {
         SETTINGS,
         SOUND_PICKER,
         CONDITION_EDITOR,
+        CONDITION_TYPE_PICKER,
         REWARD_EDITOR,
         BRANCH_PICKER,
         CONFIRM_DELETE,
@@ -1410,7 +1411,73 @@ public final class DialogueEditor implements Listener {
 
         open(player, holder);
     }
+    private void openConditionTypePicker(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        EditorHolder holder = createHolder(
+                Screen.CONDITION_TYPE_PICKER,
+                dialogueId,
+                nodeId,
+                answerId,
+                0,
+                "Вибір типу умови"
+        );
 
+        holder.inventory.setItem(
+                10,
+                item(
+                        Material.DIAMOND,
+                        "Предмет у гравця",
+                        NamedTextColor.AQUA,
+                        "Перевірка предмета та кількості"
+                )
+        );
+
+        holder.inventory.setItem(
+                12,
+                item(
+                        Material.NAME_TAG,
+                        "Minecraft-тег",
+                        NamedTextColor.YELLOW,
+                        "Перевірка scoreboard/entity tag"
+                )
+        );
+
+        holder.inventory.setItem(
+                14,
+                item(
+                        Material.EMERALD,
+                        "Ранг LuckPerms",
+                        NamedTextColor.GREEN,
+                        "Перевірка одного або декількох рангів"
+                )
+        );
+
+        holder.inventory.setItem(
+                16,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Пройдена гілка",
+                        NamedTextColor.LIGHT_PURPLE,
+                        "Перевірка проходження іншої гілки"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад до умов",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        open(player, holder);
+    }
+    
     private void openConditionMenu(
             Player player,
             String dialogueId,
@@ -3915,48 +3982,130 @@ public final class DialogueEditor implements Listener {
         player.openInventory(inventory);
     }
 
-    private void openBranchConditions(Player player, String dialogueId, String nodeId) {
+    private void openBranchConditions(
+            Player player,
+            String dialogueId,
+            String nodeId
+    ) {
+        openBranchConditions(
+                player,
+                dialogueId,
+                nodeId,
+                0
+        );
+    }
+
+    private void openBranchConditions(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            int page
+    ) {
         DialogueCore.Node node = getNode(dialogueId, nodeId);
+
         if (node == null) {
             openNodeList(player, dialogueId, 0);
             return;
         }
 
-        Inventory inventory = createHolder(
-                player,
+        List<DialogueCore.Condition> conditions =
+                new ArrayList<>(node.getConditions());
+
+        int maxPage = Math.max(
+                0,
+                (conditions.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
                 Screen.BRANCH_CONDITIONS,
                 dialogueId,
                 nodeId,
                 null,
-                54,
-                "§8Умови гілки"
+                page,
+                "Умови гілки • " + nodeId
         );
 
-        inventory.setItem(10, item(
-                Material.COMPARATOR,
-                "§eДодати умову",
-                "§7Додати умову доступності гілки"
-        ));
+        int[] slots = createEntrySlots();
 
-        inventory.setItem(12, item(
-                Material.PAPER,
-                "§fУмови",
-                "§7Кількість: §e" + node.getConditions().size()
-        ));
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                conditions.size()
+        );
 
-        inventory.setItem(14, item(
-                Material.REPEATER,
-                "§bЛогіка умов",
-                "§7Поточна логіка: §e" + node.getConditionLogic()
-        ));
+        for (int i = start; i < end; i++) {
+            DialogueCore.Condition condition = conditions.get(i);
 
-        inventory.setItem(SLOT_BACK, item(
-                Material.ARROW,
-                "§cНазад",
-                "§7До налаштувань гілки"
-        ));
+            holder.entries.add(condition.getId());
 
-        player.openInventory(inventory);
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.REDSTONE,
+                            condition.getType().name(),
+                            NamedTextColor.YELLOW,
+                            "Оператор: " + condition.getOperator(),
+                            "Значення: " + condition.getValue(),
+                            "ЛКМ — редагувати",
+                            "Shift + ПКМ — видалити"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                45,
+                item(
+                        Material.REPEATER,
+                        "Логіка умов",
+                        NamedTextColor.YELLOW,
+                        "Поточна логіка: " + node.getConditionLogic(),
+                        "Натисни, щоб перемкнути AND / OR"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.EMERALD,
+                        "Додати умову",
+                        NamedTextColor.GREEN
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    46,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
     }
 
     private void openBranchRewards(
@@ -4012,34 +4161,18 @@ public final class DialogueEditor implements Listener {
 
         player.openInventory(inventory);
     }
-    private void createCondition(Player player, String dialogueId, String nodeId, String answerId) {
-        String conditionId = "condition_" + System.currentTimeMillis();
-
-        if (answerId != null) {
-            core.addAnswerCondition(
-                    dialogueId,
-                    nodeId,
-                    answerId,
-                    conditionId,
-                    "permission",
-                    "has",
-                    "example.permission"
-            );
-
-            openConditionList(player, dialogueId, nodeId, answerId, 0);
-            return;
-        }
-
-        core.addBranchCondition(
+    private void createCondition(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        openConditionTypePicker(
+                player,
                 dialogueId,
                 nodeId,
-                conditionId,
-                "permission",
-                "has",
-                "example.permission"
+                answerId
         );
-
-        openBranchConditions(player, dialogueId, nodeId);
     }
 
     private void toggleConditionLogic(
@@ -4568,13 +4701,22 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void handleBranchConditionsClick(Player player, EditorHolder holder, int slot) {
-        if (slot == SLOT_BACK) {
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+    private void handleBranchConditionsClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
+            openBranchSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
             return;
         }
 
-        if (slot == 10) {
+        if (slot == SLOT_CREATE && isLeft(click)) {
             createCondition(
                     player,
                     holder.dialogueId,
@@ -4584,12 +4726,57 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (slot == 14) {
+        if (slot == 45 && isLeft(click)) {
             toggleConditionLogic(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     null
+            );
+            return;
+        }
+
+        if (slot == 46 && isLeft(click)) {
+            openBranchConditions(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page - 1
+            );
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            openBranchConditions(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page + 1
+            );
+            return;
+        }
+
+        String conditionId = entryAt(holder, slot);
+
+        if (conditionId == null) {
+            return;
+        }
+
+        if (isLeft(click)) {
+            openConditionMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    conditionId
+            );
+        } else if (isShiftRight(click)) {
+            deleteCondition(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    null,
+                    conditionId
             );
         }
     }
@@ -4922,7 +5109,56 @@ public final class DialogueEditor implements Listener {
             createReward(player, holder.dialogueId, holder.nodeId, null);
         }
     }
+    private void handleConditionTypePickerClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (!isLeft(click)) {
+            return;
+        }
 
+        if (slot == SLOT_BACK) {
+            if (holder.answerId != null) {
+                openConditionList(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        0
+                );
+            } else {
+                openBranchConditions(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            }
+            return;
+        }
+
+        String type = switch (slot) {
+            case 10 -> "item";
+            case 12 -> "minecraft_tag";
+            case 14 -> "luckperms_group";
+            case 16 -> "completed_branch";
+            default -> null;
+        };
+
+        if (type == null) {
+            return;
+        }
+
+        player.sendMessage(
+                PREFIX.append(Component.text(
+                        " Обрано тип умови: " + type
+                                + ". Налаштування підключимо наступним етапом.",
+                        NamedTextColor.YELLOW
+                ))
+        );
+    }
+    
     private void handleConditionEditClick(
             Player player,
             EditorHolder holder,
@@ -5296,8 +5532,21 @@ public final class DialogueEditor implements Listener {
                     handleCommandClick(player, holder, slot);
 
             case BRANCH_CONDITIONS ->
-                    handleBranchConditionsClick(player, holder, slot);
+                    handleBranchConditionsClick(
+                            player,
+                            holder,
+                            slot,
+                            click
+                    );
 
+            case CONDITION_TYPE_PICKER ->
+                    handleConditionTypePickerClick(
+                            player,
+                            holder,
+                            slot,
+                            click
+                    );
+                
             case BRANCH_REWARDS ->
                     handleBranchRewardsClick(player, holder, slot);
 
