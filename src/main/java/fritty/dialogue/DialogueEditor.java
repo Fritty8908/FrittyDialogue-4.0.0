@@ -4055,8 +4055,16 @@ public final class DialogueEditor implements Listener {
                     1
             );
 
-            openRewardList(player, dialogueId, nodeId, answerId, 0);
+            save(dialogueId);
+            openRewardList(
+                    player,
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    0
+            );
             return;
+        }
 
         core.addBranchReward(
                 dialogueId,
@@ -4067,6 +4075,7 @@ public final class DialogueEditor implements Listener {
                 1
         );
 
+        save(dialogueId);
         openBranchRewards(player, dialogueId, nodeId);
     }
 
@@ -4930,14 +4939,6 @@ public final class DialogueEditor implements Listener {
                     holder.extraId
             );
         } else if (slot == 14) {
-            changeRewardAmount(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId,
-                    holder.extraId
-            );
-        } else if (slot == 16) {
             captureRewardItem(
                     player,
                     holder.dialogueId,
@@ -4945,6 +4946,24 @@ public final class DialogueEditor implements Listener {
                     holder.answerId,
                     holder.extraId
             );
+        } else if (slot == 16) {
+            save(holder.dialogueId);
+
+            if (holder.answerId == null) {
+                openBranchRewards(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
+            } else {
+                openRewardList(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        0
+                );
+            }
         } else if (slot == 50) {
             deleteReward(
                     player,
