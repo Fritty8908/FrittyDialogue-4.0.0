@@ -3625,7 +3625,46 @@ public final class DialogueEditor implements Listener {
             openNodeMenu(player, dialogueId, nodeId);
         });
     }
+    private void requestAnswerText(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        requestChatInput(player, "Введи текст відповіді:", input -> {
+            DialogueCore.Node node = getNode(dialogueId, nodeId);
 
+            if (node == null) {
+                player.sendMessage(Component.text(
+                        "Гілку не знайдено. Зміни не збережено.",
+                        NamedTextColor.RED
+                ));
+                openNodeList(player, dialogueId, 0);
+                return;
+            }
+
+            DialogueCore.Answer answer = node.getAnswer(answerId);
+
+            if (answer == null) {
+                player.sendMessage(Component.text(
+                        "Відповідь не знайдено. Зміни не збережено.",
+                        NamedTextColor.RED
+                ));
+                openAnswerList(player, dialogueId, nodeId, 0);
+                return;
+            }
+
+            answer.setText(input);
+            save(dialogueId);
+
+            player.sendMessage(Component.text(
+                    "Текст відповіді збережено.",
+                    NamedTextColor.GREEN
+            ));
+            openAnswerMenu(player, dialogueId, nodeId, answerId);
+        });
+    }
+    
     private void requestBranchDelay(Player player, String dialogueId, String nodeId) {
         requestChatInput(player, "Введіть затримку показу тексту в тіках:", input -> {
             try {
