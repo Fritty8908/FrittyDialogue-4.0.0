@@ -1388,7 +1388,7 @@ public final class DialogueEditor implements Listener {
 
         if (page > 0) {
             holder.inventory.setItem(
-                    SLOT_PREVIOUS,
+                    46,
                     item(
                             Material.ARROW,
                             "Попередня сторінка",
@@ -2991,7 +2991,7 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+        if (slot == 46 && isLeft(click)) {
             openConditionList(
                     player,
                     holder.dialogueId,
