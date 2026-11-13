@@ -1432,8 +1432,8 @@ public final class DialogueEditor implements Listener {
                         Material.DIAMOND,
                         "Предмет",
                         NamedTextColor.AQUA,
-                        "Перевірка предмета та кількості"
-                        "ЛКМ-Налаштувати"
+                        "Перевірка предмета та кількості",
+                        "ЛКМ — налаштувати"
                 )
         );
 
@@ -1441,10 +1441,10 @@ public final class DialogueEditor implements Listener {
                 12,
                 item(
                         Material.NAME_TAG,
-                        "Tag Minecraft",
+                        "Тег Minecraft",
                         NamedTextColor.YELLOW,
-                        "Перевірка tag"
-                        "ЛКМ-Налаштувати"
+                        "Перевірка Minecraft-тега",
+                        "ЛКМ — налаштувати"
                 )
         );
 
@@ -1454,8 +1454,8 @@ public final class DialogueEditor implements Listener {
                         Material.EMERALD,
                         "Ранг LuckPerms",
                         NamedTextColor.GREEN,
-                        "Перевірка одного або декількох рангів"
-                        "ЛКМ-Налаштувати"
+                        "Перевірка одного або декількох рангів",
+                        "ЛКМ — налаштувати"
                 )
         );
 
@@ -1465,8 +1465,8 @@ public final class DialogueEditor implements Listener {
                         Material.WRITABLE_BOOK,
                         "Пройдена гілка",
                         NamedTextColor.LIGHT_PURPLE,
-                        "Перевірка проходження іншої гілки"
-                        "ЛКМ-налаштувати"
+                        "Перевірка входу в іншу гілку",
+                        "ЛКМ — налаштувати"
                 )
         );
 
