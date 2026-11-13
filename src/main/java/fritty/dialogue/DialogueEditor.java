@@ -1430,9 +1430,10 @@ public final class DialogueEditor implements Listener {
                 10,
                 item(
                         Material.DIAMOND,
-                        "Предмет у гравця",
+                        "Предмет",
                         NamedTextColor.AQUA,
                         "Перевірка предмета та кількості"
+                        "ЛКМ-Налаштувати"
                 )
         );
 
@@ -1440,9 +1441,10 @@ public final class DialogueEditor implements Listener {
                 12,
                 item(
                         Material.NAME_TAG,
-                        "Minecraft-тег",
+                        "Tag Minecraft",
                         NamedTextColor.YELLOW,
-                        "Перевірка scoreboard/entity tag"
+                        "Перевірка tag"
+                        "ЛКМ-Налаштувати"
                 )
         );
 
@@ -1453,6 +1455,7 @@ public final class DialogueEditor implements Listener {
                         "Ранг LuckPerms",
                         NamedTextColor.GREEN,
                         "Перевірка одного або декількох рангів"
+                        "ЛКМ-Налаштувати"
                 )
         );
 
@@ -1463,6 +1466,7 @@ public final class DialogueEditor implements Listener {
                         "Пройдена гілка",
                         NamedTextColor.LIGHT_PURPLE,
                         "Перевірка проходження іншої гілки"
+                        "ЛКМ-налаштувати"
                 )
         );
 
@@ -5149,14 +5153,6 @@ public final class DialogueEditor implements Listener {
         if (type == null) {
             return;
         }
-
-        player.sendMessage(
-                PREFIX.append(Component.text(
-                        " Обрано тип умови: " + type
-                                + ". Налаштування підключимо наступним етапом.",
-                        NamedTextColor.YELLOW
-                ))
-        );
     }
     
     private void handleConditionEditClick(
