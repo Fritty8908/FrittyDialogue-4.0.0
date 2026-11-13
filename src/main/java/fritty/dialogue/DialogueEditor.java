@@ -4429,6 +4429,7 @@ public final class DialogueEditor implements Listener {
     }
 
     private void captureRewardItem(
+    private void captureRewardItem(
             Player player,
             String dialogueId,
             String nodeId,
@@ -4446,6 +4447,16 @@ public final class DialogueEditor implements Listener {
         ItemStack copy = hand.clone();
 
         if (answerId != null) {
+            core.updateAnswerReward(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    rewardId,
+                    "item",
+                    null,
+                    copy.getAmount()
+            );
+
             core.setAnswerRewardItem(
                     dialogueId,
                     nodeId,
@@ -4454,6 +4465,15 @@ public final class DialogueEditor implements Listener {
                     copy
             );
         } else {
+            core.updateBranchReward(
+                    dialogueId,
+                    nodeId,
+                    rewardId,
+                    "item",
+                    null,
+                    copy.getAmount()
+            );
+
             core.setBranchRewardItem(
                     dialogueId,
                     nodeId,
