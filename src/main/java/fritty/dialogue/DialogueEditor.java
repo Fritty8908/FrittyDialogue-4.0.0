@@ -1108,32 +1108,13 @@ public final class DialogueEditor implements Listener {
         );
 
         holder.inventory.setItem(
-                28,
-                item(
-                        Material.FEATHER,
-                        "Повільність",
-                        NamedTextColor.YELLOW,
-                        "Налаштувати ефект повільності"
-                )
-        );
-
-        holder.inventory.setItem(
                 29,
                 item(
                         Material.RECOVERY_COMPASS,
-                        "Повернення на початок",
+                        "Повернення на початкову позицію",
                         NamedTextColor.YELLOW,
-                        "Повернутися до початкової гілки"
-                )
-        );
-
-        holder.inventory.setItem(
-                30,
-                item(
-                        Material.OAK_SIGN,
-                        "Підказки ActionBar",
-                        NamedTextColor.YELLOW,
-                        "Показувати підказки керування"
+                        "Після завершення діалогу повернути гравця",
+                        "до місця, де він перебував перед початком"
                 )
         );
 
@@ -2690,16 +2671,8 @@ public final class DialogueEditor implements Listener {
                     player, holder.dialogueId, "invisibility"
             );
 
-            case 28 -> toggleGlobalSetting(
-                    player, holder.dialogueId, "slowness"
-            );
-
             case 29 -> toggleGlobalSetting(
                     player, holder.dialogueId, "return-to-start"
-            );
-
-            case 30 -> toggleGlobalSetting(
-                    player, holder.dialogueId, "actionbar-hints"
             );
 
             default -> {
@@ -3975,8 +3948,7 @@ public final class DialogueEditor implements Listener {
                 "camera-location",
                 "typing-speed",
                 "typing-sound",
-                "delay",
-                "return-to-start"
+                "delay"
         };
 
         for (int i = 0; i < keys.length; i++) {
@@ -5212,17 +5184,15 @@ public final class DialogueEditor implements Listener {
             openBranchSettings(player, holder.dialogueId, holder.nodeId);
             return;
         }
-
         String[] keys = {
-                "text-color",
-                "background-color",
-                "text-scale",
-                "text-location",
-                "camera-location",
-                "typing-speed",
-                "typing-sound",
-                "delay",
-                "return-to-start"
+            "text-color",
+            "background-color",
+            "text-scale",
+            "text-location",
+            "camera-location",
+            "typing-speed",
+            "typing-sound",
+            "delay"
         };
 
         if (slot < 0 || slot >= keys.length) {
