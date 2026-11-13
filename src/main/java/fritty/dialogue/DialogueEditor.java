@@ -5,7 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,6 +17,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -24,7 +25,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,7 +55,7 @@ public final class DialogueEditor implements Listener {
     private final DialogueRuntime runtime;
 
     private final Map<UUID, ChatPrompt> chatPrompts =
-            new HashMap<>();
+            new ConcurrentHashMap<>();
 
     private boolean initialized;
 
@@ -177,6 +178,39 @@ public final class DialogueEditor implements Listener {
         return stack;
     }
 
+    private ItemStack item(
+            Material material,
+            String name,
+            String... lore
+    ) {
+        ItemStack stack = new ItemStack(material);
+        ItemMeta meta = stack.getItemMeta();
+
+        LegacyComponentSerializer serializer =
+                LegacyComponentSerializer.legacySection();
+
+        meta.displayName(
+                serializer.deserialize(name)
+                        .decoration(TextDecoration.ITALIC, false)
+        );
+
+        if (lore.length > 0) {
+            List<Component> lines = new ArrayList<>();
+
+            for (String line : lore) {
+                lines.add(
+                        serializer.deserialize(line)
+                                .decoration(TextDecoration.ITALIC, false)
+                );
+            }
+
+            meta.lore(lines);
+        }
+
+        stack.setItemMeta(meta);
+        return stack;
+    }
+    
     private void fillBackground(Inventory inventory) {
         ItemStack background = item(
                 Material.GRAY_STAINED_GLASS_PANE,
@@ -2018,7 +2052,19 @@ public final class DialogueEditor implements Listener {
             String prompt,
             Consumer<String> handler
     ) {
-        requestChatInput(player, prompt, handler, () -> {});
+        Inventory top = player.getOpenInventory().getTopInventory();
+        EditorHolder previous = getEditorHolder(top);
+
+        requestChatInput(
+                player,
+                prompt,
+                handler,
+                () -> {
+                    if (previous != null) {
+                        reopenCurrentScreen(player, previous);
+                    }
+                }
+        );
     }
 
     private void requestChatInput(
@@ -2163,6 +2209,11 @@ public final class DialogueEditor implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         // Chat prompts must remain active after closing the editor.
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        clearChatPrompt(event.getPlayer());
     }
 
     // ============================================================
@@ -3338,7 +3389,7 @@ public final class DialogueEditor implements Listener {
             openMainMenu(player);
             return;
         }
-
+        ensureMainBranch(id);
         save(id);
 
         player.sendMessage(
@@ -3465,6 +3516,7 @@ public final class DialogueEditor implements Listener {
             }
 
             core.renameDialogue(dialogueId, newId);
+            save(newId);
             player.sendMessage(Component.text("Діалог перейменовано."));
             openDialogueMenu(player, newId);
         });
@@ -3503,6 +3555,14 @@ public final class DialogueEditor implements Listener {
     }
 
     private void requestRenameBranch(Player player, String dialogueId, String nodeId) {
+                if ("start".equalsIgnoreCase(nodeId)) {
+                  player.sendMessage(Component.text(
+                    "Головну гілку start не можна перейменувати.",
+                    NamedTextColor.RED
+            ));
+            openNodeMenu(player, dialogueId, nodeId);
+            return;
+                }
         requestChatInput(player, "Введіть нову назву гілки:", input -> {
             String newId = normalizeId(input);
 
@@ -3525,6 +3585,7 @@ public final class DialogueEditor implements Listener {
             }
 
             core.renameBranch(dialogueId, nodeId, newId);
+            save(dialogueId);
             player.sendMessage(Component.text("Гілку перейменовано."));
             openNodeMenu(player, dialogueId, newId);
         });
@@ -3559,6 +3620,7 @@ public final class DialogueEditor implements Listener {
     private void requestBranchText(Player player, String dialogueId, String nodeId) {
         requestChatInput(player, "Введіть текст гілки:", input -> {
             core.setBranchText(dialogueId, nodeId, input);
+            save(dialogueId);
             player.sendMessage(Component.text("Текст гілки збережено."));
             openNodeMenu(player, dialogueId, nodeId);
         });
@@ -3579,6 +3641,7 @@ public final class DialogueEditor implements Listener {
                         "delay",
                         String.valueOf(ticks)
                 );
+                save(dialogueId);
 
                 player.sendMessage(Component.text("Затримку збережено."));
             } catch (NumberFormatException exception) {
@@ -3722,6 +3785,7 @@ public final class DialogueEditor implements Listener {
             }
 
             core.addAnswerCommand(dialogueId, nodeId, answerId, command);
+            save(dialogueId);
             player.sendMessage(Component.text("Команду додано."));
             openCommandSettings(player, dialogueId, nodeId, answerId);
         });
@@ -3742,6 +3806,7 @@ public final class DialogueEditor implements Listener {
             }
 
             core.addBranchCommand(dialogueId, nodeId, command);
+            save(dialogueId);
             player.sendMessage(Component.text("Команду додано."));
             openBranchCommands(player, dialogueId, nodeId);
         });
@@ -3886,7 +3951,7 @@ public final class DialogueEditor implements Listener {
                 "§7Натисніть, щоб змінити"
         ));
 
-        inventory.setItem(SLOT_BACK, item(
+        inventory.setItem(22, item(
                 Material.ARROW,
                 "§cНазад",
                 "§7До налаштувань звуку"
@@ -4815,8 +4880,7 @@ public final class DialogueEditor implements Listener {
                 "camera-location",
                 "typing-speed",
                 "typing-sound",
-                "delay",
-                "return-to-start"
+                "delay"
         };
 
         if (slot >= 0 && slot < keys.length) {
@@ -4887,7 +4951,7 @@ public final class DialogueEditor implements Listener {
     }
 
     private void handleSoundParametersClick(Player player, EditorHolder holder, int slot) {
-        if (slot == SLOT_BACK) {
+        if (slot == 22) {
             if (holder.answerId != null) {
                 openAnswerMenu(
                         player,
