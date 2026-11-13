@@ -1700,16 +1700,18 @@ public final class DialogueEditor implements Listener {
                 )
         );
 
-        holder.inventory.setItem(
-                15,
-                item(
-                        Material.COMPARATOR,
-                        "Кількість предметів",
-                        NamedTextColor.YELLOW,
-                        "Поточна кількість: " + reward.getAmount(),
-                        "Натисніть, щоб змінити"
-                )
-        );
+        if ("item".equalsIgnoreCase(reward.getType().name())) {
+            holder.inventory.setItem(
+                    15,
+                    item(
+                            Material.COMPARATOR,
+                            "Кількість предметів",
+                            NamedTextColor.YELLOW,
+                            "Поточна кількість: " + reward.getAmount(),
+                            "Натисніть, щоб змінити"
+                    )
+            );
+        }
 
         holder.inventory.setItem(
                 16,
