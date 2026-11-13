@@ -4429,7 +4429,6 @@ public final class DialogueEditor implements Listener {
     }
 
     private void captureRewardItem(
-    private void captureRewardItem(
             Player player,
             String dialogueId,
             String nodeId,
