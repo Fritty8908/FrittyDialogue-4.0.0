@@ -2789,7 +2789,6 @@ public final class DialogueEditor implements Listener {
     // ============================================================
 
     private void handleSettingsClick(
-    private void handleSettingsClick(
             Player player,
             EditorHolder holder,
             int slot,
