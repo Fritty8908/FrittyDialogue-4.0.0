@@ -6660,4 +6660,22 @@ public final class DialogueEditor implements Listener {
     private void clearAllPrompts() {
         chatPrompts.clear();
     }
+        private String answerSetting(
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String key,
+            String fallback
+    ) {
+        String value = core.getAnswerSetting(
+                dialogueId,
+                nodeId,
+                answerId,
+                key
+        );
+
+        return value == null || value.isBlank()
+                ? fallback
+                : value;
+        }
 }
