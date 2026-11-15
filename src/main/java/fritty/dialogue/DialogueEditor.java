@@ -6660,7 +6660,7 @@ public final class DialogueEditor implements Listener {
     private void clearAllPrompts() {
         chatPrompts.clear();
     }
-        private String answerSetting(
+    private String answerSetting(
             String dialogueId,
             String nodeId,
             String answerId,
@@ -6677,5 +6677,5 @@ public final class DialogueEditor implements Listener {
         return value == null || value.isBlank()
                 ? fallback
                 : value;
-        }
+    }
 }
