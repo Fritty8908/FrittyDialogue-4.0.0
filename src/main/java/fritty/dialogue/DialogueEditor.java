@@ -5263,20 +5263,41 @@ public final class DialogueEditor implements Listener {
             EditorHolder holder,
             int slot
     ) {
-        if (slot == SLOT_BACK || slot == 16) {
+        if (slot == SLOT_BACK) {
             if (holder.answerId == null) {
                 openBranchConditions(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
                 );
             } else {
                 openConditionList(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId,
-                        holder.answerId,
-                        0
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    0
+                );
+            }
+            return;
+        }
+
+        if (slot == 16) {
+            save(holder.dialogueId);
+
+            if (holder.answerId == null) {
+                openBranchConditions(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+                );
+            } else {
+                openConditionList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    0
                 );
             }
             return;
@@ -5306,16 +5327,8 @@ public final class DialogueEditor implements Listener {
                     holder.answerId,
                     holder.extraId
             );
-        } else if (slot == 50) {
-            deleteCondition(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId,
-                    holder.extraId
-            );
-        }
     }
+    save(dialogueId);
 
     private void handleRewardEditClick(
             Player player,
