@@ -947,12 +947,14 @@ public final class DialogueEditor implements Listener {
                                 ? Material.LIME_DYE
                                 : Material.GRAY_DYE,
                         answer.isEnabled()
-                                ? "Відповідь увімкнена"
-                                : "Відповідь вимкнена",
+                                ? "Ручний стан: активна"
+                                : "Ручний стан: вимкнена",
                         answer.isEnabled()
                                 ? NamedTextColor.GREEN
                                 : NamedTextColor.RED,
-                        "Натисни, щоб перемкнути стан"
+                        "Перемикач самої відповіді",
+                        "Умови доступності налаштовуються окремо",
+                        "ЛКМ — перемкнути стан"
                 )
         );
 
@@ -1508,12 +1510,12 @@ public final class DialogueEditor implements Listener {
                 45,
                 item(
                         Material.REPEATER,
-                        "Логіка умов",
+                        "Логіка умов: " + answer.getConditions().getLogic(),
                         NamedTextColor.YELLOW,
-                        "Перемкнути AND / OR"
+                        "Поточна логіка: " + answer.getConditions().getLogic(),
+                        "ЛКМ — перемкнути AND / OR"
                 )
         );
-
         holder.inventory.setItem(
                 SLOT_CREATE,
                 item(
@@ -4795,11 +4797,14 @@ public final class DialogueEditor implements Listener {
                         Material.REPEATER,
                         "Логіка умов",
                         NamedTextColor.YELLOW,
-                        "Поточна логіка: " + node.getConditionLogic(),
-                        "Натисни, щоб перемкнути AND / OR"
+                        "Поточна логіка: "
+                                + core.getBranchConditionLogic(
+                                        dialogueId,
+                                        nodeId
+                                ),
+                        "ЛКМ — перемкнути AND / OR"
                 )
         );
-
         holder.inventory.setItem(
                 SLOT_CREATE,
                 item(
