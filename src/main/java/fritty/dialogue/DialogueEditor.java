@@ -957,6 +957,81 @@ public final class DialogueEditor implements Listener {
         );
 
         holder.inventory.setItem(
+                18,
+                item(
+                        Material.WHITE_WOOL,
+                        "Колір тексту",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answerSetting(
+                                dialogueId, nodeId, answerId,
+                                "text-color", "#FFFFFF"
+                        ),
+                        "ЛКМ — вибрати колір"
+                )
+        );
+
+        holder.inventory.setItem(
+                19,
+                item(
+                        Material.BLACK_WOOL,
+                        "Колір фону",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answerSetting(
+                                dialogueId, nodeId, answerId,
+                                "background-color", "#000000"
+                        ),
+                        "ЛКМ — вибрати колір"
+                )
+        );
+
+        holder.inventory.setItem(
+                20,
+                item(
+                        Material.BLACK_STAINED_GLASS_PANE,
+                        "Прозорість фону",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answerSetting(
+                                dialogueId, nodeId, answerId,
+                                "background-alpha", "110"
+                        ),
+                        "ЛКМ — зменшити на 2",
+                        "ПКМ — збільшити на 2",
+                        "Shift + ЛКМ — ввести значення"
+                )
+        );
+
+        holder.inventory.setItem(
+                21,
+                item(
+                        Material.MAP,
+                        "Масштаб тексту",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answerSetting(
+                                dialogueId, nodeId, answerId,
+                                "text-scale", "1.0"
+                        ),
+                        "ЛКМ — зменшити на 0.05",
+                        "ПКМ — збільшити на 0.05",
+                        "Shift + ЛКМ — ввести значення"
+                )
+        );
+
+        holder.inventory.setItem(
+                22,
+                item(
+                        Material.PAPER,
+                        "Ширина рядка",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answerSetting(
+                                dialogueId, nodeId, answerId,
+                                "window-width", "200"
+                        ),
+                        "ЛКМ — зменшити на 5",
+                        "ПКМ — збільшити на 5",
+                        "Shift + ЛКМ — ввести значення"
+                )
+        );
+        holder.inventory.setItem(
                 SLOT_BACK,
                 item(
                         Material.ARROW,
@@ -2693,11 +2768,64 @@ public final class DialogueEditor implements Listener {
             int slot,
             ClickType click
     ) {
-        if (!isLeft(click)) {
+                if (slot == 20) {
+            adjustAnswerNumber(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "background-alpha",
+                    "Прозорість фону",
+                    110,
+                    2,
+                    0,
+                    255,
+                    true,
+                    click
+            );
             return;
         }
 
+        if (slot == 21) {
+            adjustAnswerNumber(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "text-scale",
+                    "Масштаб тексту",
+                    1.0,
+                    0.05,
+                    0.1,
+                    10.0,
+                    false,
+                    click
+            );
+            return;
+        }
+
+        if (slot == 22) {
+            adjustAnswerNumber(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "window-width",
+                    "Ширина рядка",
+                    200,
+                    5,
+                    20,
+                    1000,
+                    true,
+                    click
+            );
+            return;
+        }
+        if (!isLeft(click)) {
+            return;
+        }
         switch (slot) {
+                
             case 10 -> requestAnswerText(
                     player,
                     holder.dialogueId,
@@ -2728,6 +2856,22 @@ public final class DialogueEditor implements Listener {
                     holder.answerId
             );
 
+            case 18 -> openAnswerColorPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "text-color"
+            );
+
+            case 19 -> openAnswerColorPicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "background-color"
+            );
+                
             case 28 -> openRewardList(
                     player,
                     holder.dialogueId,
@@ -4228,6 +4372,141 @@ public final class DialogueEditor implements Listener {
                 player, dialogueId, nodeId
         );
     }
+    private void adjustAnswerNumber(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String key,
+            String title,
+            double defaultValue,
+            double step,
+            double minimum,
+            double maximum,
+            boolean integerOnly,
+            ClickType click
+    ) {
+        if (isShiftLeft(click)) {
+            requestChatInput(
+                    player,
+                    "Введіть значення для параметра «" + title + "»:",
+                    input -> {
+                        try {
+                            double value = Double.parseDouble(
+                                    input.trim().replace(',', '.')
+                            );
+
+                            if (!Double.isFinite(value)
+                                    || value < minimum
+                                    || value > maximum
+                                    || (integerOnly
+                                    && value != Math.rint(value))) {
+                                throw new NumberFormatException();
+                            }
+
+                            String storedValue = integerOnly
+                                    ? String.valueOf((long) value)
+                                    : String.format(
+                                            Locale.US,
+                                            "%.2f",
+                                            value
+                                    );
+
+                            core.setAnswerSetting(
+                                    dialogueId,
+                                    nodeId,
+                                    answerId,
+                                    key,
+                                    storedValue
+                            );
+
+                            save(dialogueId);
+
+                            player.sendMessage(Component.text(
+                                    "Значення параметра збережено.",
+                                    NamedTextColor.GREEN
+                            ));
+                        } catch (NumberFormatException exception) {
+                            player.sendMessage(Component.text(
+                                    "Некоректне значення. Допустимий діапазон: "
+                                            + minimum + "–" + maximum
+                                            + (integerOnly
+                                            ? ". Потрібне ціле число."
+                                            : "."),
+                                    NamedTextColor.RED
+                            ));
+                        }
+
+                        openAnswerMenu(
+                                player,
+                                dialogueId,
+                                nodeId,
+                                answerId
+                        );
+                    },
+                    () -> openAnswerMenu(
+                            player,
+                            dialogueId,
+                            nodeId,
+                            answerId
+                    )
+            );
+            return;
+        }
+
+        if (!isLeft(click) && !isRight(click)) {
+            return;
+        }
+
+        String stored = core.getAnswerSetting(
+                dialogueId,
+                nodeId,
+                answerId,
+                key
+        );
+
+        double current = defaultValue;
+
+        if (stored != null && !stored.isBlank()) {
+            try {
+                current = Double.parseDouble(stored);
+            } catch (NumberFormatException ignored) {
+                current = defaultValue;
+            }
+        }
+
+        if (isLeft(click)) {
+            current -= step;
+        } else {
+            current += step;
+        }
+
+        current = Math.max(
+                minimum,
+                Math.min(maximum, current)
+        );
+
+        String storedValue = integerOnly
+                ? String.valueOf(Math.round(current))
+                : String.format(Locale.US, "%.2f", current);
+
+        core.setAnswerSetting(
+                dialogueId,
+                nodeId,
+                answerId,
+                key,
+                storedValue
+        );
+
+        save(dialogueId);
+
+        openAnswerMenu(
+                player,
+                dialogueId,
+                nodeId,
+                answerId
+        );
+    }
 
     private void openSoundParameters(
             Player player,
@@ -4356,7 +4635,88 @@ public final class DialogueEditor implements Listener {
 
         player.openInventory(inventory);
     }
+    private void openAnswerColorPicker(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String key
+    ) {
+        EditorHolder holder = createHolder(
+                Screen.COLOR_PICKER,
+                dialogueId,
+                nodeId,
+                answerId,
+                0,
+                key.equals("text-color")
+                        ? "Колір тексту відповіді"
+                        : "Колір фону відповіді"
+        );
 
+        holder.extraId = key;
+
+        Material[] materials = {
+                Material.WHITE_WOOL,
+                Material.ORANGE_WOOL,
+                Material.MAGENTA_WOOL,
+                Material.LIGHT_BLUE_WOOL,
+                Material.YELLOW_WOOL,
+                Material.LIME_WOOL,
+                Material.PINK_WOOL,
+                Material.GRAY_WOOL,
+                Material.LIGHT_GRAY_WOOL,
+                Material.CYAN_WOOL,
+                Material.PURPLE_WOOL,
+                Material.BLUE_WOOL,
+                Material.BROWN_WOOL,
+                Material.GREEN_WOOL,
+                Material.RED_WOOL,
+                Material.BLACK_WOOL
+        };
+
+        String[] colors = {
+                "#FFFFFF",
+                "#FFAA00",
+                "#FF55FF",
+                "#55FFFF",
+                "#FFFF55",
+                "#55FF55",
+                "#FFAAAA",
+                "#555555",
+                "#AAAAAA",
+                "#00AAAA",
+                "#AA00AA",
+                "#5555FF",
+                "#AA5500",
+                "#00AA00",
+                "#FF5555",
+                "#000000"
+        };
+
+        for (int i = 0; i < materials.length; i++) {
+            holder.inventory.setItem(
+                    i,
+                    item(
+                            materials[i],
+                            colors[i],
+                            NamedTextColor.WHITE,
+                            "ЛКМ — вибрати цей колір"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW,
+                        "Повернутися до налаштувань відповіді"
+                )
+        );
+
+        open(player, holder);
+    }
     private void openBranchConditions(
             Player player,
             String dialogueId,
@@ -4567,7 +4927,8 @@ public final class DialogueEditor implements Listener {
         }
 
         core.toggleBranchConditionLogic(dialogueId, nodeId);
-        
+        save(dialogueId);
+
         openBranchConditions(player, dialogueId, nodeId);
     }
 
@@ -5212,12 +5573,27 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void handleColorPickerClick(Player player, EditorHolder holder, int slot) {
+    private void handleColorPickerClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
         if (slot == SLOT_BACK) {
-            if (holder.nodeId == null) {
+            if (holder.extraId != null && holder.answerId != null) {
+                openAnswerMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId
+                );
+            } else if (holder.nodeId == null) {
                 openDialogueSettings(player, holder.dialogueId);
             } else {
-                openBranchSettings(player, holder.dialogueId, holder.nodeId);
+                openBranchSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId
+                );
             }
             return;
         }
@@ -5247,6 +5623,28 @@ public final class DialogueEditor implements Listener {
 
         String color = colors[slot];
 
+        // Індивідуальний колір відповіді
+        if (holder.extraId != null && holder.answerId != null) {
+            core.setAnswerSetting(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId,
+                    color
+            );
+
+            save(holder.dialogueId);
+
+            openAnswerMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+        }
+
+        // Глобальний колір
         if (holder.nodeId == null) {
             core.setGlobalSetting(
                     holder.dialogueId,
@@ -5257,6 +5655,7 @@ public final class DialogueEditor implements Listener {
             save(holder.dialogueId);
             openDialogueSettings(player, holder.dialogueId);
         } else {
+            // Колір гілки
             core.setBranchSetting(
                     holder.dialogueId,
                     holder.nodeId,
@@ -5265,10 +5664,14 @@ public final class DialogueEditor implements Listener {
             );
 
             save(holder.dialogueId);
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+
+            openBranchSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
         }
     }
-
     private void handleSoundParametersClick(Player player, EditorHolder holder, int slot) {
         if (slot == 22) {
             if (holder.answerId != null) {
