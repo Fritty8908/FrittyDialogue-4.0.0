@@ -2789,6 +2789,7 @@ public final class DialogueEditor implements Listener {
     // ============================================================
 
     private void handleSettingsClick(
+    private void handleSettingsClick(
             Player player,
             EditorHolder holder,
             int slot,
@@ -2807,17 +2808,28 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (!isLeft(click)) {
+        if (holder.nodeId == null) {
+            if (isLeft(click)) {
+                handleGlobalSettingsClick(
+                        player, holder, slot
+                );
+            }
             return;
         }
 
-        if (holder.nodeId == null) {
-            handleGlobalSettingsClick(
-                    player, holder, slot
-            );
-        } else {
+        if (isBranchNumericSettingSlot(slot)
+                && (isLeft(click)
+                || isRight(click)
+                || isShiftLeft(click))) {
             handleBranchSettingsClick(
-                    player, holder, slot
+                    player, holder, slot, click
+            );
+            return;
+        }
+
+        if (isLeft(click)) {
+            handleBranchSettingsClick(
+                    player, holder, slot, click
             );
         }
     }
@@ -2904,63 +2916,143 @@ public final class DialogueEditor implements Listener {
     private void handleBranchSettingsClick(
             Player player,
             EditorHolder holder,
-            int slot
+            int slot,
+            ClickType click
     ) {
         switch (slot) {
-            case 10 -> openColorPicker(
-                    player, holder.dialogueId,
-                    holder.nodeId, "text-color"
+            case 10 -> {
+                if (isLeft(click)) {
+                    openColorPicker(
+                            player, holder.dialogueId,
+                            holder.nodeId, "text-color"
+                    );
+                }
+            }
+
+            case 11 -> {
+                if (isLeft(click)) {
+                    openColorPicker(
+                            player, holder.dialogueId,
+                            holder.nodeId, "background-color"
+                    );
+                }
+            }
+
+            case 12 -> adjustBranchNumber(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    "text-scale",
+                    "Масштаб тексту",
+                    1.0,
+                    0.05,
+                    0.1,
+                    10.0,
+                    false,
+                    click
             );
 
-            case 11 -> openColorPicker(
-                    player, holder.dialogueId,
-                    holder.nodeId, "background-color"
+            case 13 -> {
+                if (isLeft(click)) {
+                    captureTextLocation(
+                            player, holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
+
+            case 14 -> {
+                if (isLeft(click)) {
+                    captureCameraLocation(
+                            player, holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
+
+            case 15 -> {
+                if (isLeft(click)) {
+                    requestBranchNumber(
+                            player, holder.dialogueId,
+                            holder.nodeId,
+                            "typing-speed",
+                            "Швидкість друку"
+                    );
+                }
+            }
+
+            case 16 -> {
+                if (isLeft(click)) {
+                    openSoundPicker(
+                            player, holder.dialogueId,
+                            holder.nodeId, null, 0
+                    );
+                }
+            }
+
+            case 17 -> adjustBranchNumber(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    "window-width",
+                    "Ширина рядка",
+                    200,
+                    5,
+                    20,
+                    1000,
+                    true,
+                    click
             );
 
-            case 12 -> requestBranchNumber(
-                    player, holder.dialogueId,
-                    holder.nodeId, "text-scale", "Масштаб тексту"
+            case 18 -> adjustBranchNumber(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    "background-alpha",
+                    "Прозорість фону",
+                    110,
+                    2,
+                    0,
+                    255,
+                    true,
+                    click
             );
 
-            case 13 -> captureTextLocation(
-                    player, holder.dialogueId,
-                    holder.nodeId
-            );
+            case 19 -> {
+                if (isLeft(click)) {
+                    openBranchCommands(
+                            player, holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
 
-            case 14 -> captureCameraLocation(
-                    player, holder.dialogueId,
-                    holder.nodeId
-            );
+            case 20 -> {
+                if (isLeft(click)) {
+                    openBranchConditions(
+                            player, holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
 
-            case 15 -> requestBranchNumber(
-                    player, holder.dialogueId,
-                    holder.nodeId, "typing-speed", "Швидкість друку"
-            );
+            case 21 -> {
+                if (isLeft(click)) {
+                    openBranchRewards(
+                            player, holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
 
-            case 16 -> openSoundPicker(
-                    player, holder.dialogueId,
-                    holder.nodeId, null, 0
-            );
-
-            case 19 -> openBranchCommands(
-                    player, holder.dialogueId,
-                    holder.nodeId
-            );
-
-            case 20 -> openBranchConditions(
-                    player, holder.dialogueId,
-                    holder.nodeId
-            );
-
-            case 21 -> openBranchRewards(
-                    player, holder.dialogueId,
-                    holder.nodeId
-            );
-
-            case 23 -> openInheritanceReset(
-                    player, holder.dialogueId,
-                    holder.nodeId
-            );
+            case 23 -> {
+                if (isLeft(click)) {
+                    openInheritanceReset(
+                            player, holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
 
             default -> {
             }
@@ -3997,6 +4089,146 @@ public final class DialogueEditor implements Listener {
             openBranchSettings(player, dialogueId, nodeId);
         });
     }
+    private boolean isBranchNumericSettingSlot(int slot) {
+        return slot == 12 || slot == 17 || slot == 18;
+    }
+
+    private String branchSettingDisplay(
+            String dialogueId,
+            String nodeId,
+            String key
+    ) {
+        String value = core.getBranchSetting(
+                dialogueId,
+                nodeId,
+                key
+        );
+
+        if (value == null || value.isBlank()) {
+            return "Успадковується";
+        }
+
+        return value;
+    }
+
+    private void adjustBranchNumber(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String key,
+            String title,
+            double defaultValue,
+            double step,
+            double minimum,
+            double maximum,
+            boolean integerOnly,
+            ClickType click
+    ) {
+        if (isShiftLeft(click)) {
+            requestChatInput(
+                    player,
+                    "Введіть значення для параметра «" + title + "»:",
+                    input -> {
+                        try {
+                            double value = Double.parseDouble(
+                                    input.trim().replace(',', '.')
+                            );
+
+                            if (!Double.isFinite(value)
+                                    || value < minimum
+                                    || value > maximum
+                                    || (integerOnly
+                                    && value != Math.rint(value))) {
+                                throw new NumberFormatException();
+                            }
+
+                            String storedValue = integerOnly
+                                    ? String.valueOf((long) value)
+                                    : String.format(
+                                            Locale.US,
+                                            "%.2f",
+                                            value
+                                    );
+
+                            core.setBranchSetting(
+                                    dialogueId,
+                                    nodeId,
+                                    key,
+                                    storedValue
+                            );
+
+                            save(dialogueId);
+
+                            player.sendMessage(Component.text(
+                                    "Значення параметра збережено."
+                            ));
+                        } catch (NumberFormatException exception) {
+                            player.sendMessage(Component.text(
+                                    "Некоректне значення. Допустимий діапазон: "
+                                            + minimum + "–" + maximum
+                                            + (integerOnly
+                                            ? ". Потрібне ціле число."
+                                            : ".")
+                            ));
+                        }
+
+                        openBranchSettings(
+                                player, dialogueId, nodeId
+                        );
+                    },
+                    () -> openBranchSettings(
+                            player, dialogueId, nodeId
+                    )
+            );
+            return;
+        }
+
+        String stored = core.getBranchSetting(
+                dialogueId,
+                nodeId,
+                key
+        );
+
+        double current = defaultValue;
+
+        if (stored != null && !stored.isBlank()) {
+            try {
+                current = Double.parseDouble(stored);
+            } catch (NumberFormatException ignored) {
+                current = defaultValue;
+            }
+        }
+
+        if (isLeft(click)) {
+            current -= step;
+        } else if (isRight(click)) {
+            current += step;
+        } else {
+            return;
+        }
+
+        current = Math.max(
+                minimum,
+                Math.min(maximum, current)
+        );
+
+        String storedValue = integerOnly
+                ? String.valueOf(Math.round(current))
+                : String.format(Locale.US, "%.2f", current);
+
+        core.setBranchSetting(
+                dialogueId,
+                nodeId,
+                key,
+                storedValue
+        );
+
+        save(dialogueId);
+
+        openBranchSettings(
+                player, dialogueId, nodeId
+        );
+    }
 
     private void openSoundParameters(
             Player player,
@@ -4281,6 +4513,8 @@ public final class DialogueEditor implements Listener {
                 "text-color",
                 "background-color",
                 "text-scale",
+                "window-width",
+                "background-alpha",
                 "text-location",
                 "camera-location",
                 "typing-speed",
@@ -5639,6 +5873,8 @@ public final class DialogueEditor implements Listener {
             "text-color",
             "background-color",
             "text-scale",
+            "window-width",
+            "background-alpha",
             "text-location",
             "camera-location",
             "typing-speed",
