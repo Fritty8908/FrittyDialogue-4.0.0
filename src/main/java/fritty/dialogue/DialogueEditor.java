@@ -1191,6 +1191,16 @@ public final class DialogueEditor implements Listener {
                 "Налаштування гілки • " + nodeId
         );
 
+                String textScale = branchSettingDisplay(
+                dialogueId, nodeId, "text-scale"
+        );
+        String windowWidth = branchSettingDisplay(
+                dialogueId, nodeId, "window-width"
+        );
+        String backgroundAlpha = branchSettingDisplay(
+                dialogueId, nodeId, "background-alpha"
+        );
+        
         holder.inventory.setItem(
                 10,
                 item(
@@ -1215,9 +1225,11 @@ public final class DialogueEditor implements Listener {
                 12,
                 item(
                         Material.MAP,
-                        "Масштаб тексту",
+                        "Масштаб тексту: " + textScale,
                         NamedTextColor.YELLOW,
-                        "Змінити лише розмір тексту"
+                        "ЛКМ — зменшити на 0.05",
+                        "ПКМ — збільшити на 0.05",
+                        "Shift + ЛКМ — ввести число в чат"
                 )
         );
 
@@ -1258,6 +1270,30 @@ public final class DialogueEditor implements Listener {
                         "Звук друку",
                         NamedTextColor.YELLOW,
                         "Вибрати звук для цієї гілки"
+                )
+        );
+        
+        holder.inventory.setItem(
+                17,
+                item(
+                        Material.PAPER,
+                        "Ширина рядка: " + windowWidth,
+                        NamedTextColor.YELLOW,
+                        "ЛКМ — зменшити на 5",
+                        "ПКМ — збільшити на 5",
+                        "Shift + ЛКМ — ввести число в чат"
+                )
+        );
+
+        holder.inventory.setItem(
+                18,
+                item(
+                        Material.GRAY_STAINED_GLASS,
+                        "Прозорість фону: " + backgroundAlpha,
+                        NamedTextColor.YELLOW,
+                        "ЛКМ — зменшити на 2",
+                        "ПКМ — збільшити на 2",
+                        "Shift + ЛКМ — ввести число в чат"
                 )
         );
 
@@ -4281,6 +4317,7 @@ public final class DialogueEditor implements Listener {
                 nodeId,
                 answerId
         );
+
     }
 
     private void toggleConditionLogic(
@@ -4291,11 +4328,13 @@ public final class DialogueEditor implements Listener {
     ) {
         if (answerId != null) {
             core.toggleAnswerConditionLogic(dialogueId, nodeId, answerId);
+            save(dialogueId);
             openConditionList(player, dialogueId, nodeId, answerId, 0);
             return;
         }
 
         core.toggleBranchConditionLogic(dialogueId, nodeId);
+        
         openBranchConditions(player, dialogueId, nodeId);
     }
 
@@ -4313,12 +4352,14 @@ public final class DialogueEditor implements Listener {
                     answerId,
                     conditionId
             );
+            save(dialogueId);
 
             openConditionList(player, dialogueId, nodeId, answerId, 0);
             return;
         }
 
         core.deleteBranchCondition(dialogueId, nodeId, conditionId);
+        save(dialogueId);
         openBranchConditions(player, dialogueId, nodeId);
     }
 
@@ -4435,6 +4476,7 @@ public final class DialogueEditor implements Listener {
                         null,
                         null
                 );
+                save(dialogueId);
 
                 openConditionMenu(
                         player,
@@ -4454,6 +4496,7 @@ public final class DialogueEditor implements Listener {
                     null,
                     null
             );
+            save(dialogueId);
 
             openBranchConditions(player, dialogueId, nodeId);
         });
@@ -4477,6 +4520,7 @@ public final class DialogueEditor implements Listener {
                         input.trim(),
                         null
                 );
+                save(dialogueId);
 
                 openConditionMenu(
                         player,
@@ -4496,6 +4540,7 @@ public final class DialogueEditor implements Listener {
                     input.trim(),
                     null
             );
+            save(dialogueId);
 
             openBranchConditions(player, dialogueId, nodeId);
         });
@@ -4519,6 +4564,7 @@ public final class DialogueEditor implements Listener {
                         null,
                         input
                 );
+                save(dialogueId);
 
                 openConditionMenu(
                         player,
@@ -4538,6 +4584,7 @@ public final class DialogueEditor implements Listener {
                     null,
                     input
             );
+            save(dialogueId);
 
             openBranchConditions(player, dialogueId, nodeId);
         });
@@ -5327,9 +5374,8 @@ public final class DialogueEditor implements Listener {
                     holder.answerId,
                     holder.extraId
             );
+        }
     }
-    save(dialogueId);
-
     private void handleRewardEditClick(
             Player player,
             EditorHolder holder,
