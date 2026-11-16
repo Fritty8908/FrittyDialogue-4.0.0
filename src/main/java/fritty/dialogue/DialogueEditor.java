@@ -964,7 +964,7 @@ public final class DialogueEditor implements Listener {
                         Material.WHITE_WOOL,
                         "Колір тексту",
                         NamedTextColor.YELLOW,
-                        "Зараз: " + answerSetting(
+                        "Зараз: " + answerSettingDisplay(
                                 dialogueId, nodeId, answerId,
                                 "text-color", "#FFFFFF"
                         ),
@@ -978,7 +978,7 @@ public final class DialogueEditor implements Listener {
                         Material.BLACK_WOOL,
                         "Колір фону",
                         NamedTextColor.YELLOW,
-                        "Зараз: " + answerSetting(
+                        "Зараз: " + answerSettingDisplay(
                                 dialogueId, nodeId, answerId,
                                 "background-color", "#000000"
                         ),
@@ -992,7 +992,7 @@ public final class DialogueEditor implements Listener {
                         Material.BLACK_STAINED_GLASS_PANE,
                         "Прозорість фону",
                         NamedTextColor.YELLOW,
-                        "Зараз: " + answerSetting(
+                        "Зараз: " + answerSettingDisplay(
                                 dialogueId, nodeId, answerId,
                                 "background-alpha", "110"
                         ),
@@ -1008,7 +1008,7 @@ public final class DialogueEditor implements Listener {
                         Material.MAP,
                         "Масштаб тексту",
                         NamedTextColor.YELLOW,
-                        "Зараз: " + answerSetting(
+                        "Зараз: " + answerSettingDisplay(
                                 dialogueId, nodeId, answerId,
                                 "text-scale", "1.0"
                         ),
@@ -1024,7 +1024,7 @@ public final class DialogueEditor implements Listener {
                         Material.PAPER,
                         "Ширина рядка",
                         NamedTextColor.YELLOW,
-                        "Зараз: " + answerSetting(
+                        "Зараз: " + answerSettingDisplay(
                                 dialogueId, nodeId, answerId,
                                 "window-width", "200"
                         ),
@@ -1033,7 +1033,8 @@ public final class DialogueEditor implements Listener {
                         "Shift + ЛКМ — ввести значення"
                 )
         );
-                holder.inventory.setItem(
+
+        holder.inventory.setItem(
                 23,
                 item(
                         Material.ARMOR_STAND,
@@ -1050,6 +1051,7 @@ public final class DialogueEditor implements Listener {
                         "Приклад: 0 -0.5 0"
                 )
         );
+        
         holder.inventory.setItem(
                 SLOT_BACK,
                 item(
@@ -1246,6 +1248,42 @@ public final class DialogueEditor implements Listener {
                         "до місця, де він перебував перед початком"
                 )
         );
+        holder.inventory.setItem(
+                31,
+                item(
+                        Material.BOOK,
+                        "Поточні параметри діалогу",
+                        NamedTextColor.GOLD,
+                        "Масштаб тексту: "
+                                + globalSettingDisplay(dialogueId, "text-scale", "Стандартне"),
+                        "Ширина вікна: "
+                                + globalSettingDisplay(dialogueId, "window-width", "Стандартне"),
+                        "Прозорість фону: "
+                                + globalSettingDisplay(dialogueId, "background-alpha", "Стандартне"),
+                        "Швидкість друку: "
+                                + globalSettingDisplay(dialogueId, "typing-speed", "Стандартне"),
+                        "Звук друку: "
+                                + globalSettingDisplay(dialogueId, "typing-sound", "Стандартне"),
+                        "Позиція тексту: "
+                                + globalSettingDisplay(dialogueId, "text-location", "Стандартне"),
+                        "Позиція камери: "
+                                + globalSettingDisplay(dialogueId, "camera-location", "Стандартне"),
+                        "Приховування гравців: "
+                                + globalSettingDisplay(dialogueId, "hide-players", "Стандартне"),
+                        "Одноразовий діалог: "
+                                + globalSettingDisplay(dialogueId, "one-time", "Стандартне"),
+                        "Видимість крізь блоки: "
+                                + globalSettingDisplay(dialogueId, "see-through-blocks", "Стандартне"),
+                        "Плавна камера: "
+                                + globalSettingDisplay(dialogueId, "smooth-camera", "Стандартне"),
+                        "Друк посимвольно: "
+                                + globalSettingDisplay(dialogueId, "character-printing", "Стандартне"),
+                        "Невидимість: "
+                                + globalSettingDisplay(dialogueId, "invisibility", "Стандартне"),
+                        "Повернення на початкову позицію: "
+                                + globalSettingDisplay(dialogueId, "return-to-start", "Стандартне")
+                )
+        );
 
         holder.inventory.setItem(
                 SLOT_BACK,
@@ -1439,6 +1477,34 @@ public final class DialogueEditor implements Listener {
                         NamedTextColor.YELLOW
                 )
         );
+        holder.inventory.setItem(
+                25,
+                item(
+                        Material.BOOK,
+                        "Поточні параметри гілки",
+                        NamedTextColor.GOLD,
+                        "Колір тексту: "
+                                + branchSettingDisplay(dialogueId, nodeId, "text-color"),
+                        "Колір фону: "
+                                + branchSettingDisplay(dialogueId, nodeId, "background-color"),
+                        "Масштаб тексту: "
+                                + branchSettingDisplay(dialogueId, nodeId, "text-scale"),
+                        "Ширина вікна: "
+                                + branchSettingDisplay(dialogueId, nodeId, "window-width"),
+                        "Прозорість фону: "
+                                + branchSettingDisplay(dialogueId, nodeId, "background-alpha"),
+                        "Позиція тексту: "
+                                + branchSettingDisplay(dialogueId, nodeId, "text-location"),
+                        "Позиція камери: "
+                                + branchSettingDisplay(dialogueId, nodeId, "camera-location"),
+                        "Швидкість друку: "
+                                + branchSettingDisplay(dialogueId, nodeId, "typing-speed"),
+                        "Звук друку: "
+                                + branchSettingDisplay(dialogueId, nodeId, "typing-sound"),
+                        "Затримка: "
+                                + branchSettingDisplay(dialogueId, nodeId, "delay")
+                )
+        );
 
         open(player, holder);
     }
@@ -1607,14 +1673,34 @@ public final class DialogueEditor implements Listener {
             String nodeId,
             String answerId
     ) {
+        openConditionTypePicker(
+                player,
+                dialogueId,
+                nodeId,
+                answerId,
+                null
+        );
+    }
+
+    private void openConditionTypePicker(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String conditionId
+    ) {
         EditorHolder holder = createHolder(
                 Screen.CONDITION_TYPE_PICKER,
                 dialogueId,
                 nodeId,
                 answerId,
                 0,
-                "Вибір типу умови"
+                conditionId == null
+                        ? "Створення умови"
+                        : "Зміна типу умови"
         );
+
+        holder.extraId = conditionId;
 
         holder.inventory.setItem(
                 10,
@@ -1622,8 +1708,7 @@ public final class DialogueEditor implements Listener {
                         Material.DIAMOND,
                         "Предмет",
                         NamedTextColor.AQUA,
-                        "Перевірка предмета та кількості",
-                        "ЛКМ — налаштувати"
+                        "Перевірка предмета та кількості"
                 )
         );
 
@@ -1633,8 +1718,7 @@ public final class DialogueEditor implements Listener {
                         Material.NAME_TAG,
                         "Тег Minecraft",
                         NamedTextColor.YELLOW,
-                        "Перевірка Minecraft-тега",
-                        "ЛКМ — налаштувати"
+                        "Перевірка Minecraft-тега"
                 )
         );
 
@@ -1644,8 +1728,7 @@ public final class DialogueEditor implements Listener {
                         Material.EMERALD,
                         "Ранг LuckPerms",
                         NamedTextColor.GREEN,
-                        "Перевірка одного або декількох рангів",
-                        "ЛКМ — налаштувати"
+                        "Перевірка групи LuckPerms"
                 )
         );
 
@@ -1655,8 +1738,7 @@ public final class DialogueEditor implements Listener {
                         Material.WRITABLE_BOOK,
                         "Пройдена гілка",
                         NamedTextColor.LIGHT_PURPLE,
-                        "Перевірка входу в іншу гілку",
-                        "ЛКМ — налаштувати"
+                        "Перевірка проходження іншої гілки"
                 )
         );
 
@@ -1664,7 +1746,7 @@ public final class DialogueEditor implements Listener {
                 SLOT_BACK,
                 item(
                         Material.ARROW,
-                        "Назад до умов",
+                        "Назад",
                         NamedTextColor.YELLOW
                 )
         );
@@ -1679,6 +1761,38 @@ public final class DialogueEditor implements Listener {
             String answerId,
             String conditionId
     ) {
+        DialogueCore.Condition condition;
+
+        if (answerId != null) {
+            condition = core.getAnswerCondition(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    conditionId
+            );
+        } else {
+            condition = core.getBranchCondition(
+                    dialogueId,
+                    nodeId,
+                    conditionId
+            );
+        }
+
+        if (condition == null) {
+            if (answerId != null) {
+                openConditionList(
+                        player,
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        0
+                );
+            } else {
+                openBranchConditions(player, dialogueId, nodeId);
+            }
+            return;
+        }
+
         EditorHolder holder = createHolder(
                 Screen.CONDITION,
                 dialogueId,
@@ -1687,6 +1801,7 @@ public final class DialogueEditor implements Listener {
                 0,
                 "Редагування умови"
         );
+
         holder.extraId = conditionId;
 
         holder.inventory.setItem(
@@ -1695,7 +1810,8 @@ public final class DialogueEditor implements Listener {
                         Material.COMPARATOR,
                         "Тип умови",
                         NamedTextColor.YELLOW,
-                        "Вибрати тип перевірки"
+                        "Зараз: " + condition.getType().name(),
+                        "ЛКМ — змінити тип"
                 )
         );
 
@@ -1705,7 +1821,8 @@ public final class DialogueEditor implements Listener {
                         Material.REPEATER,
                         "Оператор",
                         NamedTextColor.YELLOW,
-                        "Рівно, більше, менше, містить тощо"
+                        "Зараз: " + condition.getOperator(),
+                        "ЛКМ — змінити оператор"
                 )
         );
 
@@ -1715,7 +1832,8 @@ public final class DialogueEditor implements Listener {
                         Material.PAPER,
                         "Значення",
                         NamedTextColor.YELLOW,
-                        "Задати значення умови через чат"
+                        "Зараз: " + condition.getValue(),
+                        "ЛКМ — змінити значення"
                 )
         );
 
@@ -4080,48 +4198,128 @@ public final class DialogueEditor implements Listener {
             String nodeId,
             String answerId
     ) {
-        DialogueCore.Answer answer = core.getAnswer(dialogueId, nodeId, answerId);
+        openCommandSettings(
+                player,
+                dialogueId,
+                nodeId,
+                answerId,
+                0
+        );
+    }
+
+    private void openCommandSettings(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page
+    ) {
+        DialogueCore.Answer answer =
+                core.getAnswer(dialogueId, nodeId, answerId);
+
         if (answer == null) {
             openAnswerList(player, dialogueId, nodeId, 0);
             return;
         }
 
-        Inventory inventory = createHolder(
-                player,
+        List<String> commands =
+                new ArrayList<>(answer.getCommands());
+
+        int maxPage = Math.max(
+                0,
+                (commands.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
                 Screen.COMMANDS,
                 dialogueId,
                 nodeId,
                 answerId,
-                54,
-                "§8Команди відповіді"
+                page,
+                "Команди відповіді"
         );
 
-        inventory.setItem(10, item(
-                Material.WRITABLE_BOOK,
-                "§eДодати команду",
-                "§7Введіть команду в чат",
-                "§7Плейсхолдери: {player}, {uuid}"
-        ));
+        int[] slots = createEntrySlots();
 
-        inventory.setItem(12, item(
-                Material.PAPER,
-                "§fКоманди відповіді",
-                "§7Кількість: §e" + answer.getCommands().size()
-        ));
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                commands.size()
+        );
 
-        inventory.setItem(14, item(
-                Material.COMMAND_BLOCK,
-                "§bВиконання команд",
-                "§7Команди виконуються від імені консолі"
-        ));
+        for (int i = start; i < end; i++) {
+            String command = commands.get(i);
 
-        inventory.setItem(SLOT_BACK, item(
-                Material.ARROW,
-                "§cНазад",
-                "§7До редактора відповіді"
-        ));
+            holder.entries.add(String.valueOf(i));
 
-        player.openInventory(inventory);
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.REPEATER,
+                            "Команда #" + (i + 1),
+                            NamedTextColor.YELLOW,
+                            "Повна команда:",
+                            command,
+                            "Shift + ПКМ — видалити"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                47,
+                item(
+                        Material.COMMAND_BLOCK,
+                        "Виконання команд",
+                        NamedTextColor.AQUA,
+                        "Команди виконуються від імені консолі",
+                        "Після вибору цієї відповіді"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Додати команду",
+                        NamedTextColor.GREEN,
+                        "Ввести команду через чат"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
     }
 
     private void openBranchCommands(
@@ -4129,83 +4327,228 @@ public final class DialogueEditor implements Listener {
             String dialogueId,
             String nodeId
     ) {
+        openBranchCommands(player, dialogueId, nodeId, 0);
+    }
+
+    private void openBranchCommands(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            int page
+    ) {
         DialogueCore.Node node = getNode(dialogueId, nodeId);
+
         if (node == null) {
             openNodeList(player, dialogueId, 0);
             return;
         }
 
-        Inventory inventory = createHolder(
-                player,
+        List<String> commands =
+                new ArrayList<>(node.getCommands());
+
+        int maxPage = Math.max(
+                0,
+                (commands.size() - 1) / ENTRIES_PER_PAGE
+        );
+
+        page = Math.max(0, Math.min(page, maxPage));
+
+        EditorHolder holder = createHolder(
                 Screen.COMMANDS,
                 dialogueId,
                 nodeId,
                 null,
-                54,
-                "§8Команди гілки"
+                page,
+                "Команди гілки"
         );
 
-        inventory.setItem(10, item(
-                Material.WRITABLE_BOOK,
-                "§eДодати команду",
-                "§7Введіть команду в чат"
-        ));
+        int[] slots = createEntrySlots();
 
-        inventory.setItem(12, item(
-                Material.PAPER,
-                "§fКоманди гілки",
-                "§7Кількість: §e" + node.getCommands().size()
-        ));
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(
+                start + ENTRIES_PER_PAGE,
+                commands.size()
+        );
 
-        inventory.setItem(SLOT_BACK, item(
-                Material.ARROW,
-                "§cНазад",
-                "§7До редактора гілки"
-        ));
+        for (int i = start; i < end; i++) {
+            String command = commands.get(i);
 
-        player.openInventory(inventory);
+            holder.entries.add(String.valueOf(i));
+
+            holder.inventory.setItem(
+                    slots[i - start],
+                    item(
+                            Material.REPEATER,
+                            "Команда #" + (i + 1),
+                            NamedTextColor.YELLOW,
+                            "Повна команда:",
+                            command,
+                            "Shift + ПКМ — видалити"
+                    )
+            );
+        }
+
+        holder.inventory.setItem(
+                SLOT_CREATE,
+                item(
+                        Material.WRITABLE_BOOK,
+                        "Додати команду",
+                        NamedTextColor.GREEN,
+                        "Ввести команду через чат"
+                )
+        );
+
+        holder.inventory.setItem(
+                SLOT_BACK,
+                item(
+                        Material.ARROW,
+                        "Назад",
+                        NamedTextColor.YELLOW
+                )
+        );
+
+        if (page > 0) {
+            holder.inventory.setItem(
+                    SLOT_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "Попередня сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        if (page < maxPage) {
+            holder.inventory.setItem(
+                    SLOT_NEXT,
+                    item(
+                            Material.ARROW,
+                            "Наступна сторінка",
+                            NamedTextColor.YELLOW
+                    )
+            );
+        }
+
+        open(player, holder);
     }
 
-    private void addAnswerCommand(Player player, String dialogueId, String nodeId, String answerId) {
-        requestChatInput(player, "Введіть команду без початкового /:", input -> {
-            String command = input.trim();
-
-            if (command.isBlank()) {
-                player.sendMessage(Component.text("Команда не може бути порожньою."));
-                openCommandSettings(player, dialogueId, nodeId, answerId);
-                return;
-            }
-
-            if (command.startsWith("/")) {
-                command = command.substring(1);
-            }
-
-            core.addAnswerCommand(dialogueId, nodeId, answerId, command);
-            save(dialogueId);
-            player.sendMessage(Component.text("Команду додано."));
-            openCommandSettings(player, dialogueId, nodeId, answerId);
-        });
+    private void addAnswerCommand(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        addAnswerCommand(player, dialogueId, nodeId, answerId, 0);
     }
 
-    private void addBranchCommand(Player player, String dialogueId, String nodeId) {
-        requestChatInput(player, "Введіть команду без початкового /:", input -> {
-            String command = input.trim();
+    private void addAnswerCommand(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            int page
+    ) {
+        requestChatInput(
+                player,
+                "Введіть команду без початкового /:",
+                input -> {
+                    String command = input.trim();
 
-            if (command.isBlank()) {
-                player.sendMessage(Component.text("Команда не може бути порожньою."));
-                openBranchCommands(player, dialogueId, nodeId);
-                return;
-            }
+                    if (command.isBlank()) {
+                        player.sendMessage(Component.text(
+                                "Команда не може бути порожньою.",
+                                NamedTextColor.RED
+                        ));
 
-            if (command.startsWith("/")) {
-                command = command.substring(1);
-            }
+                        openCommandSettings(
+                                player,
+                                dialogueId,
+                                nodeId,
+                                answerId,
+                                page
+                        );
+                        return;
+                    }
 
-            core.addBranchCommand(dialogueId, nodeId, command);
-            save(dialogueId);
-            player.sendMessage(Component.text("Команду додано."));
-            openBranchCommands(player, dialogueId, nodeId);
-        });
+                    if (command.startsWith("/")) {
+                        command = command.substring(1);
+                    }
+
+                    core.addAnswerCommand(
+                            dialogueId,
+                            nodeId,
+                            answerId,
+                            command
+                    );
+
+                    save(dialogueId);
+
+                    openCommandSettings(
+                            player,
+                            dialogueId,
+                            nodeId,
+                            answerId,
+                            page
+                    );
+                }
+        );
+    }
+
+    private void addBranchCommand(
+            Player player,
+            String dialogueId,
+            String nodeId
+    ) {
+        addBranchCommand(player, dialogueId, nodeId, 0);
+    }
+
+    private void addBranchCommand(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            int page
+    ) {
+        requestChatInput(
+                player,
+                "Введіть команду без початкового /:",
+                input -> {
+                    String command = input.trim();
+
+                    if (command.isBlank()) {
+                        player.sendMessage(Component.text(
+                                "Команда не може бути порожньою.",
+                                NamedTextColor.RED
+                        ));
+
+                        openBranchCommands(
+                                player,
+                                dialogueId,
+                                nodeId,
+                                page
+                        );
+                        return;
+                    }
+
+                    if (command.startsWith("/")) {
+                        command = command.substring(1);
+                    }
+
+                    core.addBranchCommand(
+                            dialogueId,
+                            nodeId,
+                            command
+                    );
+
+                    save(dialogueId);
+
+                    openBranchCommands(
+                            player,
+                            dialogueId,
+                            nodeId,
+                            page
+                    );
+                }
+        );
     }
     private void toggleGlobalSetting(Player player, String dialogueId, String key) {
         DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
@@ -4333,11 +4676,20 @@ public final class DialogueEditor implements Listener {
                 key
         );
 
-        if (value == null || value.isBlank()) {
-            return "Успадковується";
+        if (value != null && !value.isBlank()) {
+            return value + " (власне)";
         }
 
-        return value;
+        String inherited = core.getGlobalSetting(
+                dialogueId,
+                key
+        );
+
+        if (inherited == null || inherited.isBlank()) {
+            return "Стандартне значення";
+        }
+
+        return inherited + " (успадковано)";
     }
 
     private void adjustBranchNumber(
@@ -4417,6 +4769,13 @@ public final class DialogueEditor implements Listener {
                 nodeId,
                 key
         );
+
+        if (stored == null || stored.isBlank()) {
+            stored = core.getGlobalSetting(
+                    dialogueId,
+                    key
+            );
+        }
 
         double current = defaultValue;
 
@@ -4551,6 +4910,21 @@ public final class DialogueEditor implements Listener {
                 key
         );
 
+        if (stored == null || stored.isBlank()) {
+            stored = core.getBranchSetting(
+                    dialogueId,
+                    nodeId,
+                    key
+            );
+        }
+
+        if (stored == null || stored.isBlank()) {
+            stored = core.getGlobalSetting(
+                    dialogueId,
+                    key
+            );
+        }
+
         double current = defaultValue;
 
         if (stored != null && !stored.isBlank()) {
@@ -4594,6 +4968,74 @@ public final class DialogueEditor implements Listener {
         );
     }
 
+    private void requestAnswerOffset(
+            Player player,
+            String dialogueId,
+            String nodeId,
+            String answerId
+    ) {
+        requestChatInput(
+                player,
+                "Введіть Offset у форматі X Y Z:",
+                input -> {
+                    String[] parts = input.trim().split("\\s+");
+
+                    try {
+                        if (parts.length != 3) {
+                            throw new NumberFormatException();
+                        }
+
+                        double x = Double.parseDouble(parts[0]);
+                        double y = Double.parseDouble(parts[1]);
+                        double z = Double.parseDouble(parts[2]);
+
+                        if (!Double.isFinite(x)
+                                || !Double.isFinite(y)
+                                || !Double.isFinite(z)
+                                || Math.abs(x) > 1000
+                                || Math.abs(y) > 1000
+                                || Math.abs(z) > 1000) {
+                            throw new NumberFormatException();
+                        }
+
+                        String value = String.format(
+                                Locale.US,
+                                "%.3f %.3f %.3f",
+                                x,
+                                y,
+                                z
+                        );
+
+                        core.setAnswerSetting(
+                                dialogueId,
+                                nodeId,
+                                answerId,
+                                "offset",
+                                value
+                        );
+
+                        save(dialogueId);
+
+                        player.sendMessage(Component.text(
+                                "Offset відповіді збережено.",
+                                NamedTextColor.GREEN
+                        ));
+                    } catch (NumberFormatException exception) {
+                        player.sendMessage(Component.text(
+                                "Некоректний формат. Приклад: 0 -0.5 0",
+                                NamedTextColor.RED
+                        ));
+                    }
+
+                    openAnswerMenu(
+                            player,
+                            dialogueId,
+                            nodeId,
+                            answerId
+                    );
+                }
+        );
+    }
     private void openSoundParameters(
             Player player,
             String dialogueId,
@@ -5052,7 +5494,32 @@ public final class DialogueEditor implements Listener {
             String nodeId,
             String answerId
     ) {
-        String rewardId = "reward_" + System.currentTimeMillis();
+        ItemStack hand = player.getInventory().getItemInMainHand();
+
+        if (hand.getType().isAir()) {
+            player.sendMessage(Component.text(
+                    "Візьміть предмет у головну руку.",
+                    NamedTextColor.RED
+            ));
+
+            if (answerId != null) {
+                openRewardList(
+                        player,
+                        dialogueId,
+                        nodeId,
+                        answerId,
+                        0
+                );
+            } else {
+                openBranchRewards(player, dialogueId, nodeId);
+            }
+            return;
+        }
+
+        ItemStack copy = hand.clone();
+
+        String rewardId = "reward_"
+                + UUID.randomUUID().toString().replace("-", "");
 
         if (answerId != null) {
             core.addAnswerReward(
@@ -5060,12 +5527,21 @@ public final class DialogueEditor implements Listener {
                     nodeId,
                     answerId,
                     rewardId,
-                    "command",
-                    "say Нова нагорода",
-                    1
+                    "item",
+                    "",
+                    copy.getAmount()
+            );
+
+            core.setAnswerRewardItem(
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    rewardId,
+                    copy
             );
 
             save(dialogueId);
+
             openRewardList(
                     player,
                     dialogueId,
@@ -5080,9 +5556,16 @@ public final class DialogueEditor implements Listener {
                 dialogueId,
                 nodeId,
                 rewardId,
-                "command",
-                "say Нова нагорода",
-                1
+                "item",
+                "",
+                copy.getAmount()
+        );
+
+        core.setBranchRewardItem(
+                dialogueId,
+                nodeId,
+                rewardId,
+                copy
         );
 
         save(dialogueId);
@@ -5148,41 +5631,13 @@ public final class DialogueEditor implements Listener {
             String answerId,
             String conditionId
     ) {
-        requestChatInput(player, "Введіть тип умови:", input -> {
-            if (answerId != null) {
-                core.updateAnswerCondition(
-                        dialogueId,
-                        nodeId,
-                        answerId,
-                        conditionId,
-                        input.trim(),
-                        null,
-                        null
-                );
-                save(dialogueId);
-
-                openConditionMenu(
-                        player,
-                        dialogueId,
-                        nodeId,
-                        answerId,
-                        conditionId
-                );
-                return;
-            }
-
-            core.updateBranchCondition(
-                    dialogueId,
-                    nodeId,
-                    conditionId,
-                    input.trim(),
-                    null,
-                    null
-            );
-            save(dialogueId);
-
-            openBranchConditions(player, dialogueId, nodeId);
-        });
+        openConditionTypePicker(
+                player,
+                dialogueId,
+                nodeId,
+                answerId,
+                conditionId
+        );
     }
 
     private void changeConditionOperator(
@@ -5203,29 +5658,26 @@ public final class DialogueEditor implements Listener {
                         input.trim(),
                         null
                 );
-                save(dialogueId);
-
-                openConditionMenu(
-                        player,
+            } else {
+                core.updateBranchCondition(
                         dialogueId,
                         nodeId,
-                        answerId,
-                        conditionId
+                        conditionId,
+                        null,
+                        input.trim(),
+                        null
                 );
-                return;
             }
 
-            core.updateBranchCondition(
-                    dialogueId,
-                    nodeId,
-                    conditionId,
-                    null,
-                    input.trim(),
-                    null
-            );
             save(dialogueId);
 
-            openBranchConditions(player, dialogueId, nodeId);
+            openConditionMenu(
+                    player,
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    conditionId
+            );
         });
     }
 
@@ -5247,29 +5699,26 @@ public final class DialogueEditor implements Listener {
                         null,
                         input
                 );
-                save(dialogueId);
-
-                openConditionMenu(
-                        player,
+            } else {
+                core.updateBranchCondition(
                         dialogueId,
                         nodeId,
-                        answerId,
-                        conditionId
+                        conditionId,
+                        null,
+                        null,
+                        input
                 );
-                return;
             }
 
-            core.updateBranchCondition(
-                    dialogueId,
-                    nodeId,
-                    conditionId,
-                    null,
-                    null,
-                    input
-            );
             save(dialogueId);
 
-            openBranchConditions(player, dialogueId, nodeId);
+            openConditionMenu(
+                    player,
+                    dialogueId,
+                    nodeId,
+                    answerId,
+                    conditionId
+            );
         });
     }
 
@@ -5502,8 +5951,13 @@ public final class DialogueEditor implements Listener {
         openMainMenu(player, 0);
     }
 
-    private void handleCommandClick(Player player, EditorHolder holder, int slot) {
-        if (slot == SLOT_BACK) {
+    private void handleCommandClick(
+            Player player,
+            EditorHolder holder,
+            int slot,
+            ClickType click
+    ) {
+        if (slot == SLOT_BACK && isLeft(click)) {
             if (holder.answerId != null) {
                 openAnswerMenu(
                         player,
@@ -5521,21 +5975,116 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (slot == 10) {
+        if (slot == SLOT_CREATE && isLeft(click)) {
             if (holder.answerId != null) {
                 addAnswerCommand(
                         player,
                         holder.dialogueId,
                         holder.nodeId,
-                        holder.answerId
+                        holder.answerId,
+                        holder.page
                 );
             } else {
                 addBranchCommand(
                         player,
                         holder.dialogueId,
-                        holder.nodeId
+                        holder.nodeId,
+                        holder.page
                 );
             }
+            return;
+        }
+
+        if (slot == SLOT_PREVIOUS && isLeft(click)) {
+            if (holder.answerId != null) {
+                openCommandSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        holder.page - 1
+                );
+            } else {
+                openBranchCommands(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.page - 1
+                );
+            }
+            return;
+        }
+
+        if (slot == SLOT_NEXT && isLeft(click)) {
+            if (holder.answerId != null) {
+                openCommandSettings(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        holder.page + 1
+                );
+            } else {
+                openBranchCommands(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.page + 1
+                );
+            }
+            return;
+        }
+
+        if (!isShiftRight(click)) {
+            return;
+        }
+
+        String indexText = entryAt(holder, slot);
+
+        if (indexText == null) {
+            return;
+        }
+
+        int index;
+
+        try {
+            index = Integer.parseInt(indexText);
+        } catch (NumberFormatException exception) {
+            return;
+        }
+
+        if (holder.answerId != null) {
+            core.removeAnswerCommand(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    index
+            );
+
+            save(holder.dialogueId);
+
+            openCommandSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page
+            );
+        } else {
+            core.removeBranchCommand(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    index
+            );
+
+            save(holder.dialogueId);
+
+            openBranchCommands(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page
+            );
         }
     }
 
@@ -6001,6 +6550,7 @@ public final class DialogueEditor implements Listener {
         }
     }
     private void handleConditionTypePickerClick(
+    private void handleConditionTypePickerClick(
             Player player,
             EditorHolder holder,
             int slot,
@@ -6011,7 +6561,15 @@ public final class DialogueEditor implements Listener {
         }
 
         if (slot == SLOT_BACK) {
-            if (holder.answerId != null) {
+            if (holder.extraId != null) {
+                openConditionMenu(
+                        player,
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        holder.extraId
+                );
+            } else if (holder.answerId != null) {
                 openConditionList(
                         player,
                         holder.dialogueId,
@@ -6041,28 +6599,53 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        String conditionId = "condition_"
-                + UUID.randomUUID().toString().replace("-", "");
+        String conditionId = holder.extraId;
 
-        if (holder.answerId != null) {
-            core.addAnswerCondition(
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId,
-                    conditionId,
-                    type,
-                    "equals",
-                    ""
-            );
+        if (conditionId != null) {
+            if (holder.answerId != null) {
+                core.updateAnswerCondition(
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        conditionId,
+                        type,
+                        null,
+                        null
+                );
+            } else {
+                core.updateBranchCondition(
+                        holder.dialogueId,
+                        holder.nodeId,
+                        conditionId,
+                        type,
+                        null,
+                        null
+                );
+            }
         } else {
-            core.addBranchCondition(
-                    holder.dialogueId,
-                    holder.nodeId,
-                    conditionId,
-                    type,
-                    "equals",
-                    ""
-            );
+            conditionId = "condition_"
+                    + UUID.randomUUID().toString().replace("-", "");
+
+            if (holder.answerId != null) {
+                core.addAnswerCondition(
+                        holder.dialogueId,
+                        holder.nodeId,
+                        holder.answerId,
+                        conditionId,
+                        type,
+                        "equals",
+                        ""
+                );
+            } else {
+                core.addBranchCondition(
+                        holder.dialogueId,
+                        holder.nodeId,
+                        conditionId,
+                        type,
+                        "equals",
+                        ""
+                );
+            }
         }
 
         save(holder.dialogueId);
@@ -6460,24 +7043,18 @@ public final class DialogueEditor implements Listener {
                     handleConfirmDeleteClick(player, holder, slot);
 
             case COMMANDS ->
-                    handleCommandClick(player, holder, slot);
+                    handleCommandClick(player, holder, slot, click);
 
             case BRANCH_CONDITIONS ->
                     handleBranchConditionsClick(
-                            player,
-                            holder,
-                            slot,
-                            click
+                            player, holder, slot, click
                     );
 
             case CONDITION_TYPE_PICKER ->
                     handleConditionTypePickerClick(
-                            player,
-                            holder,
-                            slot,
-                            click
+                            player, holder, slot, click
                     );
-                
+
             case BRANCH_REWARDS ->
                     handleBranchRewardsClick(player, holder, slot);
 
@@ -6497,7 +7074,9 @@ public final class DialogueEditor implements Listener {
                     handleRewardEditClick(player, holder, slot);
 
             case BRANCH_PICKER ->
-                    handleBranchPickerClick(player, holder, slot, click);
+                    handleBranchPickerClick(
+                            player, holder, slot, click
+                    );
 
             case SOUND_PICKER ->
                     handleSoundClick(player, holder, slot, click);
@@ -6598,7 +7177,8 @@ public final class DialogueEditor implements Listener {
                     player,
                     holder.dialogueId,
                     holder.nodeId,
-                    holder.answerId
+                    holder.answerId,
+                    holder.extraId
             );
 
             case CONDITION -> openConditionMenu(
@@ -6623,13 +7203,15 @@ public final class DialogueEditor implements Listener {
                             player,
                             holder.dialogueId,
                             holder.nodeId,
-                            holder.answerId
+                            holder.answerId,
+                            holder.page
                     );
                 } else {
                     openBranchCommands(
                             player,
                             holder.dialogueId,
-                            holder.nodeId
+                            holder.nodeId,
+                            holder.page
                     );
                 }
             }
@@ -6902,12 +7484,58 @@ public final class DialogueEditor implements Listener {
             String key,
             String fallback
     ) {
-        String value = core.getAnswerSetting(
+        String value = core.getEffectiveAnswerSetting(
                 dialogueId,
                 nodeId,
                 answerId,
                 key
         );
+
+        return value == null || value.isBlank()
+                ? fallback
+                : value;
+    }
+
+    private String answerSettingDisplay(
+            String dialogueId,
+            String nodeId,
+            String answerId,
+            String key,
+            String fallback
+    ) {
+        String own = core.getAnswerSetting(
+                dialogueId, nodeId, answerId, key
+        );
+
+        if (own != null && !own.isBlank()) {
+            return own + " (власне)";
+        }
+
+        String branch = core.getBranchSetting(
+                dialogueId, nodeId, key
+        );
+
+        if (branch != null && !branch.isBlank()) {
+            return branch + " (успадковано від гілки)";
+        }
+
+        String global = core.getGlobalSetting(
+                dialogueId, key
+        );
+
+        if (global != null && !global.isBlank()) {
+            return global + " (успадковано від діалогу)";
+        }
+
+        return fallback + " (стандартне)";
+    }
+
+    private String globalSettingDisplay(
+            String dialogueId,
+            String key,
+            String fallback
+    ) {
+        String value = core.getGlobalSetting(dialogueId, key);
 
         return value == null || value.isBlank()
                 ? fallback
