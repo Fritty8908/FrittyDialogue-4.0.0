@@ -1033,6 +1033,23 @@ public final class DialogueEditor implements Listener {
                         "Shift + ЛКМ — ввести значення"
                 )
         );
+                holder.inventory.setItem(
+                23,
+                item(
+                        Material.ARMOR_STAND,
+                        "Зміщення відповіді (Offset)",
+                        NamedTextColor.YELLOW,
+                        "Зараз: " + answerSetting(
+                                dialogueId,
+                                nodeId,
+                                answerId,
+                                "offset",
+                                "0 0 0"
+                        ),
+                        "ЛКМ — ввести X Y Z через чат",
+                        "Приклад: 0 -0.5 0"
+                )
+        );
         holder.inventory.setItem(
                 SLOT_BACK,
                 item(
@@ -1514,6 +1531,32 @@ public final class DialogueEditor implements Listener {
                         NamedTextColor.YELLOW,
                         "Поточна логіка: " + answer.getConditions().getLogic(),
                         "ЛКМ — перемкнути AND / OR"
+                )
+        );
+        String unavailableMode = answerSetting(
+                dialogueId,
+                nodeId,
+                answerId,
+                "unavailable-answer-mode",
+                "HIDE"
+        );
+
+        boolean showDisabled = unavailableMode.equalsIgnoreCase("DISABLED");
+
+        holder.inventory.setItem(
+                47,
+                item(
+                        showDisabled ? Material.GRAY_DYE : Material.BARRIER,
+                        showDisabled
+                                ? "Недоступні: показувати затемненими"
+                                : "Недоступні: приховувати",
+                        showDisabled
+                                ? NamedTextColor.RED
+                                : NamedTextColor.YELLOW,
+                        "Поточний режим: " + unavailableMode,
+                        "ЛКМ — перемкнути режим",
+                        "При показі: затемнення, закреслення",
+                        "Окремий червоний напис «Недоступно»"
                 )
         );
         holder.inventory.setItem(
@@ -2823,6 +2866,15 @@ public final class DialogueEditor implements Listener {
             );
             return;
         }
+                if (slot == 23 && isLeft(click)) {
+            requestAnswerOffset(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+            return;
+                }
         if (!isLeft(click)) {
             return;
         }
@@ -3385,6 +3437,38 @@ public final class DialogueEditor implements Listener {
         if (holder.answerId == null) {
             return;
         }
+                if (slot == 47 && isLeft(click)) {
+            String currentMode = answerSetting(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "unavailable-answer-mode",
+                    "HIDE"
+            );
+
+            String nextMode = currentMode.equalsIgnoreCase("HIDE")
+                    ? "DISABLED"
+                    : "HIDE";
+
+            core.setAnswerSetting(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    "unavailable-answer-mode",
+                    nextMode
+            );
+
+            save(holder.dialogueId);
+
+            openConditionList(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.page
+            );
+            return;
+                }
 
         if (slot == 46 && isLeft(click)) {
             openConditionList(
@@ -5551,9 +5635,17 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void handleInheritanceClick(Player player, EditorHolder holder, int slot) {
+    private void handleInheritanceClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
         if (slot == SLOT_BACK) {
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
+            openBranchSettings(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
             return;
         }
 
@@ -5561,6 +5653,8 @@ public final class DialogueEditor implements Listener {
                 "text-color",
                 "background-color",
                 "text-scale",
+                "window-width",
+                "background-alpha",
                 "text-location",
                 "camera-location",
                 "typing-speed",
@@ -5568,14 +5662,16 @@ public final class DialogueEditor implements Listener {
                 "delay"
         };
 
-        if (slot >= 0 && slot < keys.length) {
-            resetBranchSetting(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    keys[slot]
-            );
+        if (slot < 0 || slot >= keys.length) {
+            return;
         }
+
+        resetBranchSetting(
+                player,
+                holder.dialogueId,
+                holder.nodeId,
+                keys[slot]
+        );
     }
 
     private void handleColorPickerClick(
@@ -5944,6 +6040,40 @@ public final class DialogueEditor implements Listener {
         if (type == null) {
             return;
         }
+
+        String conditionId = "condition_"
+                + UUID.randomUUID().toString().replace("-", "");
+
+        if (holder.answerId != null) {
+            core.addAnswerCondition(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    conditionId,
+                    type,
+                    "equals",
+                    ""
+            );
+        } else {
+            core.addBranchCondition(
+                    holder.dialogueId,
+                    holder.nodeId,
+                    conditionId,
+                    type,
+                    "equals",
+                    ""
+            );
+        }
+
+        save(holder.dialogueId);
+
+        openConditionMenu(
+                player,
+                holder.dialogueId,
+                holder.nodeId,
+                holder.answerId,
+                conditionId
+        );
     }
     
     private void handleConditionEditClick(
@@ -6399,7 +6529,7 @@ public final class DialogueEditor implements Listener {
                     holder.dialogueId
             );
 
-            case NODE_LIST -> openNodeList(
+            case NODES, NODE_LIST -> openNodeList(
                     player,
                     holder.dialogueId,
                     holder.page
@@ -6448,7 +6578,7 @@ public final class DialogueEditor implements Listener {
                 }
             }
 
-            case CONDITION_LIST -> openConditionList(
+            case CONDITION_EDITOR, CONDITION_LIST -> openConditionList(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
@@ -6456,13 +6586,53 @@ public final class DialogueEditor implements Listener {
                     holder.page
             );
 
-            case REWARD_LIST -> openRewardList(
+            case REWARD_EDITOR, REWARD_LIST -> openRewardList(
                     player,
                     holder.dialogueId,
                     holder.nodeId,
                     holder.answerId,
                     holder.page
             );
+
+            case CONDITION_TYPE_PICKER -> openConditionTypePicker(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+
+            case CONDITION -> openConditionMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+
+            case REWARD -> openRewardMenu(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId,
+                    holder.extraId
+            );
+
+            case COMMANDS -> {
+                if (holder.answerId != null) {
+                    openCommandSettings(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId,
+                            holder.answerId
+                    );
+                } else {
+                    openBranchCommands(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId
+                    );
+                }
+            }
 
             case SOUND_PICKER -> openSoundPicker(
                     player,
@@ -6472,6 +6642,32 @@ public final class DialogueEditor implements Listener {
                     holder.page
             );
 
+            case SOUND_PARAMETERS -> openSoundParameters(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.answerId
+            );
+
+            case COLOR_PICKER -> {
+                if (holder.extraId != null && holder.answerId != null) {
+                    openAnswerColorPicker(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId,
+                            holder.answerId,
+                            holder.extraId
+                    );
+                } else {
+                    openColorPicker(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId,
+                            holder.answerId
+                    );
+                }
+            }
+
             case BRANCH_PICKER -> openBranchPicker(
                     player,
                     holder.dialogueId,
@@ -6480,12 +6676,46 @@ public final class DialogueEditor implements Listener {
                     holder.page
             );
 
-            default -> handleSpecialScreenClick(
+            case BRANCH_CONDITIONS -> openBranchConditions(
                     player,
-                    holder,
-                    -1,
-                    ClickType.UNKNOWN
+                    holder.dialogueId,
+                    holder.nodeId,
+                    holder.page
             );
+
+            case BRANCH_REWARDS -> openBranchRewards(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case INHERITANCE -> openInheritanceReset(
+                    player,
+                    holder.dialogueId,
+                    holder.nodeId
+            );
+
+            case CONFIRM_DELETE -> {
+                if (holder.answerId != null) {
+                    openAnswerMenu(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId,
+                            holder.answerId
+                    );
+                } else if (holder.nodeId != null) {
+                    openNodeMenu(
+                            player,
+                            holder.dialogueId,
+                            holder.nodeId
+                    );
+                } else {
+                    openDialogueMenu(
+                            player,
+                            holder.dialogueId
+                    );
+                }
+            }
         }
     }
 
