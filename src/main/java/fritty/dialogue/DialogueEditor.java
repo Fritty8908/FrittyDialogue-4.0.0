@@ -1944,8 +1944,11 @@ public final class DialogueEditor implements Listener {
                 SLOT_CREATE,
                 item(
                         Material.EMERALD,
-                        "Додати нагороду",
-                        NamedTextColor.GREEN
+                        "Додати предмет із руки",
+                        NamedTextColor.GREEN,
+                        "Скопіювати предмет із головної руки",
+                        "Зберігаються кількість і всі властивості",
+                        "Оригінальний предмет залишається у вас"
                 )
         );
 
@@ -4273,8 +4276,8 @@ public final class DialogueEditor implements Listener {
                         Material.COMMAND_BLOCK,
                         "Виконання команд",
                         NamedTextColor.AQUA,
-                        "Команди виконуються від імені консолі",
-                        "Після вибору цієї відповіді"
+                        "Команди виконуються після вибору",
+                        "цієї відповіді"
                 )
         );
 
@@ -6549,7 +6552,6 @@ public final class DialogueEditor implements Listener {
             createReward(player, holder.dialogueId, holder.nodeId, null);
         }
     }
-    private void handleConditionTypePickerClick(
     private void handleConditionTypePickerClick(
             Player player,
             EditorHolder holder,
