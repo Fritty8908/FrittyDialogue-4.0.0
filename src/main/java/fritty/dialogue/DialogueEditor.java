@@ -6397,7 +6397,11 @@ public final class DialogueEditor implements Listener {
             );
         }
     }
-    private void handleSoundParametersClick(Player player, EditorHolder holder, int slot) {
+    private void handleSoundParametersClick(
+            Player player,
+            EditorHolder holder,
+            int slot
+    ) {
         if (slot == 22) {
             if (holder.answerId != null) {
                 openAnswerMenu(
@@ -6419,211 +6423,117 @@ public final class DialogueEditor implements Listener {
         }
 
         if (slot == 11) {
-            requestChatInput(player, "Введіть гучність звуку (0.0–2.0):", input -> {
-                try {
-                    float volume = Float.parseFloat(input.trim());
+            requestChatInput(
+                    player,
+                    "Введіть гучність звуку (0.0–2.0):",
+                    input -> {
+                        try {
+                            float volume = Float.parseFloat(
+                                    input.trim().replace(',', '.')
+                            );
 
-                    if (!Float.isFinite(volume) || volume < 0 || volume > 2) {
-                        throw new NumberFormatException();
-                    }
+                            if (!Float.isFinite(volume) || volume < 0) {
+                                throw new NumberFormatException();
+                            }
 
-                    if (holder.answerId != null) {
-                        core.setAnswerSoundVolume(
+                            volume = Math.min(volume, 2.0f);
+
+                            if (holder.answerId != null) {
+                                core.setAnswerSoundVolume(
+                                        holder.dialogueId,
+                                        holder.nodeId,
+                                        holder.answerId,
+                                        volume
+                                );
+                            } else if (holder.nodeId != null) {
+                                core.setBranchSetting(
+                                        holder.dialogueId,
+                                        holder.nodeId,
+                                        "sound-volume",
+                                        String.valueOf(volume)
+                                );
+                            } else {
+                                core.setGlobalSetting(
+                                        holder.dialogueId,
+                                        "sound-volume",
+                                        String.valueOf(volume)
+                                );
+                            }
+
+                            save(holder.dialogueId);
+                        } catch (NumberFormatException exception) {
+                            player.sendMessage(Component.text(
+                                    "Введіть число не менше 0.0."
+                            ));
+                        }
+
+                        openSoundParameters(
+                                player,
                                 holder.dialogueId,
                                 holder.nodeId,
-                                holder.answerId,
-                                volume
-                        );
-                    } else if (holder.nodeId != null) {
-                        core.setBranchSetting(
-                                holder.dialogueId,
-                                holder.nodeId,
-                                "sound-volume",
-                                String.valueOf(volume)
-                        );
-                    } else {
-                        core.setGlobalSetting(
-                                holder.dialogueId,
-                                "sound-volume",
-                                String.valueOf(volume)
+                                holder.answerId
                         );
                     }
-                    save(holder.dialogueId);
-                } catch (NumberFormatException exception) {
-                    player.sendMessage(Component.text("Введіть число від 0.0 до 2.0."));
-                }
-
-                openSoundParameters(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId,
-                        holder.answerId
-                );
-            });
+            );
             return;
         }
 
         if (slot == 15) {
-            requestChatInput(player, "Введіть висоту тону (0.5–2.0):", input -> {
-                try {
-                    float pitch = Float.parseFloat(input.trim());
+            requestChatInput(
+                    player,
+                    "Введіть висоту тону (0.5–2.0):",
+                    input -> {
+                        try {
+                            float pitch = Float.parseFloat(
+                                    input.trim().replace(',', '.')
+                            );
 
-                    if (!Float.isFinite(pitch) || pitch < 0.5f || pitch > 2.0f) {
-                        throw new NumberFormatException();
-                    }
+                            if (!Float.isFinite(pitch) || pitch < 0.5f) {
+                                throw new NumberFormatException();
+                            }
 
-                    if (holder.answerId != null) {
-                        core.setAnswerSoundPitch(
+                            pitch = Math.min(pitch, 2.0f);
+
+                            if (holder.answerId != null) {
+                                core.setAnswerSoundPitch(
+                                        holder.dialogueId,
+                                        holder.nodeId,
+                                        holder.answerId,
+                                        pitch
+                                );
+                            } else if (holder.nodeId != null) {
+                                core.setBranchSetting(
+                                        holder.dialogueId,
+                                        holder.nodeId,
+                                        "sound-pitch",
+                                        String.valueOf(pitch)
+                                );
+                            } else {
+                                core.setGlobalSetting(
+                                        holder.dialogueId,
+                                        "sound-pitch",
+                                        String.valueOf(pitch)
+                                );
+                            }
+
+                            save(holder.dialogueId);
+                        } catch (NumberFormatException exception) {
+                            player.sendMessage(Component.text(
+                                    "Введіть число не менше 0.5."
+                            ));
+                        }
+
+                        openSoundParameters(
+                                player,
                                 holder.dialogueId,
                                 holder.nodeId,
-                                holder.answerId,
-                                pitch
-                        );
-                    } else if (holder.nodeId != null) {
-                        core.setBranchSetting(
-                                holder.dialogueId,
-                                holder.nodeId,
-                                "sound-pitch",
-                                String.valueOf(pitch)
-                        );
-                    } else {
-                        core.setGlobalSetting(
-                                holder.dialogueId,
-                                "sound-pitch",
-                                String.valueOf(pitch)
+                                holder.answerId
                         );
                     }
-
-                    save(holder.dialogueId);
-                } catch (NumberFormatException exception) {
-                    player.sendMessage(Component.text("Введіть число від 0.5 до 2.0."));
-                }
-
-                openSoundParameters(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId,
-                        holder.answerId
-                );
-            });
-        }
-    }
-
-    private void handleBranchConditionEditClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openBranchConditions(player, holder.dialogueId, holder.nodeId);
-            return;
-        }
-
-        if (holder.answerId == null) {
-            return;
-        }
-
-        if (slot == 10) {
-            changeConditionType(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    null,
-                    holder.answerId
-            );
-        } else if (slot == 12) {
-            changeConditionOperator(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    null,
-                    holder.answerId
-            );
-        } else if (slot == 14) {
-            changeConditionValue(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    null,
-                    holder.answerId
             );
         }
     }
-
-    private void handleBranchRewardEditClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openBranchRewards(player, holder.dialogueId, holder.nodeId);
-            return;
-        }
-
-        if (holder.answerId == null) {
-            return;
-        }
-
-        if (slot == 10) {
-            changeRewardType(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    null,
-                    holder.answerId
-            );
-        } else if (slot == 12) {
-            changeRewardValue(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    null,
-                    holder.answerId
-            );
-        } else if (slot == 14) {
-            changeRewardAmount(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    null,
-                    holder.answerId
-            );
-        }
-    }
-    private void handleBranchConditionListClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
-            return;
-        }
-
-        if (slot == 10) {
-            createCondition(player, holder.dialogueId, holder.nodeId, null);
-            return;
-        }
-
-        if (slot == 14) {
-            toggleConditionLogic(player, holder.dialogueId, holder.nodeId, null);
-        }
-    }
-
-    private void handleBranchRewardListClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
-            return;
-        }
-
-        if (slot == 10) {
-            createReward(player, holder.dialogueId, holder.nodeId, null);
-        }
-    }
+    
     private void handleConditionTypePickerClick(
             Player player,
             EditorHolder holder,
@@ -6828,15 +6738,7 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
-        if (slot == 10) {
-            changeRewardType(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId,
-                    holder.extraId
-            );
-        } else if (slot == 12) {
+        if (slot == 12) {
             changeRewardValue(
                     player,
                     holder.dialogueId,
@@ -6889,223 +6791,6 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void handleBranchCommandClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
-            return;
-        }
-
-        if (slot == 10) {
-            addBranchCommand(player, holder.dialogueId, holder.nodeId);
-        }
-    }
-
-    private void handleAnswerCommandClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openAnswerMenu(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId
-            );
-            return;
-        }
-
-        if (slot == 10) {
-            addAnswerCommand(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId,
-                    holder.answerId
-            );
-        }
-    }
-
-    private void handleSoundPickerClick(
-            Player player,
-            EditorHolder holder,
-            int slot,
-            ClickType click
-    ) {
-        if (slot == SLOT_BACK) {
-            if (holder.answerId != null) {
-                openAnswerMenu(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId,
-                        holder.answerId
-                );
-            } else {
-                openBranchSettings(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId
-                );
-            }
-            return;
-        }
-
-        if (slot < 0 || slot >= Sound.values().length) {
-            return;
-        }
-
-        Sound sound = Sound.values()[slot];
-
-        if (click.isRightClick()) {
-            if (holder.answerId != null) {
-                core.setAnswerSound(
-                        holder.dialogueId,
-                        holder.nodeId,
-                        holder.answerId,
-                        sound.name()
-                );
-                save(holder.dialogueId);
-                openAnswerMenu(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId,
-                        holder.answerId
-                );
-            } else {
-                core.setBranchSetting(
-                        holder.dialogueId,
-                        holder.nodeId,
-                        "typing-sound",
-                        sound.name()
-                );
-                save(holder.dialogueId);
-                openBranchSettings(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId
-                );
-            }
-            return;
-        }
-
-        player.playSound(
-                player.getLocation(),
-                sound,
-                1.0f,
-                1.0f
-        );
-    }
-
-    private void handleColorSelect(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        String[] colors = {
-                "#FFFFFF", "#FFAA00", "#FF55FF", "#55FFFF",
-                "#FFFF55", "#55FF55", "#FFAAAA", "#555555",
-                "#AAAAAA", "#00AAAA", "#AA00AA", "#5555FF",
-                "#AA5500", "#00AA00", "#FF5555", "#000000"
-        };
-
-        if (slot == SLOT_BACK) {
-            if (holder.nodeId == null) {
-                openDialogueSettings(player, holder.dialogueId);
-            } else {
-                openBranchSettings(
-                        player,
-                        holder.dialogueId,
-                        holder.nodeId
-                );
-            }
-            return;
-        }
-
-        if (slot < 0 || slot >= colors.length) {
-            return;
-        }
-
-        String key = holder.answerId;
-
-        if (key == null || key.isBlank()) {
-            return;
-        }
-
-        if (holder.nodeId == null) {
-            core.setGlobalSetting(holder.dialogueId, key, colors[slot]);
-            save(holder.dialogueId);
-            openDialogueSettings(player, holder.dialogueId);
-        } else {
-            core.setBranchSetting(
-                    holder.dialogueId,
-                    holder.nodeId,
-                    key,
-                    colors[slot]
-            );
-            save(holder.dialogueId);
-            openBranchSettings(
-                    player,
-                    holder.dialogueId,
-                    holder.nodeId
-            );
-        }
-    }
-
-    private void handleInheritanceResetClick(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        if (slot == SLOT_BACK) {
-            openBranchSettings(player, holder.dialogueId, holder.nodeId);
-            return;
-        }
-        String[] keys = {
-            "text-color",
-            "background-color",
-            "text-scale",
-            "window-width",
-            "background-alpha",
-            "text-location",
-            "camera-location",
-            "typing-speed",
-            "typing-sound",
-            "delay"
-        };
-
-        if (slot < 0 || slot >= keys.length) {
-            return;
-        }
-
-        resetBranchSetting(
-                player,
-                holder.dialogueId,
-                holder.nodeId,
-                keys[slot]
-        );
-    }
-
-    private void handleSoundParameters(
-            Player player,
-            EditorHolder holder,
-            int slot
-    ) {
-        handleSoundParametersClick(player, holder, slot);
-    }
-
-    private void handleBranchSettingsBack(
-            Player player,
-            EditorHolder holder
-    ) {
-        if (holder.nodeId == null) {
-            openDialogueMenu(player, holder.dialogueId);
-        } else {
-            openNodeMenu(player, holder.dialogueId, holder.nodeId);
-        }
-    }
     private void handleSpecialScreenClick(
             Player player,
             EditorHolder holder,
@@ -7113,48 +6798,51 @@ public final class DialogueEditor implements Listener {
             ClickType click
     ) {
         switch (holder.screen) {
-            case CONFIRM_DELETE ->
+            case CONFIRM_DELETE -> {
+                if (isLeft(click)) {
                     handleConfirmDeleteClick(player, holder, slot);
-
+                }
+            }
             case COMMANDS ->
                     handleCommandClick(player, holder, slot, click);
-
             case BRANCH_CONDITIONS ->
-                    handleBranchConditionsClick(
-                            player, holder, slot, click
-                    );
-
+                    handleBranchConditionsClick(player, holder, slot, click);
             case CONDITION_TYPE_PICKER ->
-                    handleConditionTypePickerClick(
-                            player, holder, slot, click
-                    );
-
-            case BRANCH_REWARDS ->
+                    handleConditionTypePickerClick(player, holder, slot, click);
+            case BRANCH_REWARDS -> {
+                if (isLeft(click)) {
                     handleBranchRewardsClick(player, holder, slot);
-
-            case INHERITANCE ->
+                }
+            }
+            case INHERITANCE -> {
+                if (isLeft(click)) {
                     handleInheritanceClick(player, holder, slot);
-
-            case COLOR_PICKER ->
+                }
+            }
+            case COLOR_PICKER -> {
+                if (isLeft(click)) {
                     handleColorPickerClick(player, holder, slot);
-
-            case SOUND_PARAMETERS ->
+                }
+            }
+            case SOUND_PARAMETERS -> {
+                if (isLeft(click)) {
                     handleSoundParametersClick(player, holder, slot);
-
-            case CONDITION ->
+                }
+            }
+            case CONDITION -> {
+                if (isLeft(click)) {
                     handleConditionEditClick(player, holder, slot);
-
-            case REWARD ->
+                }
+            }
+            case REWARD -> {
+                if (isLeft(click)) {
                     handleRewardEditClick(player, holder, slot);
-
+                }
+            }
             case BRANCH_PICKER ->
-                    handleBranchPickerClick(
-                            player, holder, slot, click
-                    );
-
+                    handleBranchPickerClick(player, holder, slot, click);
             case SOUND_PICKER ->
                     handleSoundClick(player, holder, slot, click);
-
             default -> {
             }
         }
@@ -7375,139 +7063,6 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void closeEditor(Player player) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-
-        player.closeInventory();
-    }
-
-    private void sendEditorMessage(Player player, String message) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-
-        player.sendMessage(Component.text(message));
-    }
-
-    private boolean validDialogue(String dialogueId) {
-        return dialogueId != null
-                && !dialogueId.isBlank()
-                && core.getDialogue(dialogueId) != null;
-    }
-
-    private boolean validBranch(String dialogueId, String nodeId) {
-        return validDialogue(dialogueId)
-                && nodeId != null
-                && core.getDialogue(dialogueId).getNode(nodeId) != null;
-    }
-
-    private boolean validAnswer(
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        if (!validBranch(dialogueId, nodeId) || answerId == null) {
-            return false;
-        }
-
-        return core.getAnswer(dialogueId, nodeId, answerId) != null;
-    }
-
-    private void refreshAfterMutation(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        save(dialogueId);
-
-        if (answerId != null) {
-            openAnswerMenu(player, dialogueId, nodeId, answerId);
-        } else if (nodeId != null) {
-            openNodeMenu(player, dialogueId, nodeId);
-        } else {
-            openDialogueMenu(player, dialogueId);
-        }
-    }
-
-    private String cleanInput(String input) {
-        if (input == null) {
-            return "";
-        }
-
-        return input.trim();
-    }
-
-    private String safeId(String input, String fallback) {
-        String id = normalizeId(input);
-
-        if (id.isBlank()) {
-            return fallback;
-        }
-
-        return id;
-    }
-
-    private int clampPage(int page, int size) {
-        if (size <= 0) {
-            return 0;
-        }
-
-        int maxPage = Math.max(
-                0,
-                (size - 1) / ENTRIES_PER_PAGE
-        );
-
-        return Math.max(0, Math.min(page, maxPage));
-    }
-
-    private void playEditorClick(Player player) {
-        player.playSound(
-                player.getLocation(),
-                Sound.UI_BUTTON_CLICK,
-                0.5f,
-                1.2f
-        );
-    }
-
-    private void playEditorError(Player player) {
-        player.playSound(
-                player.getLocation(),
-                Sound.BLOCK_NOTE_BLOCK_BASS,
-                0.7f,
-                0.7f
-        );
-    }
-
-    private void playEditorSuccess(Player player) {
-        player.playSound(
-                player.getLocation(),
-                Sound.ENTITY_EXPERIENCE_ORB_PICKUP,
-                0.6f,
-                1.3f
-        );
-    }
-
-    private void updateInventoryTitle(Player player, String title) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-
-        Inventory inventory = player.getOpenInventory().getTopInventory();
-
-        if (!isEditorInventory(inventory)) {
-            return;
-        }
-
-        player.openInventory(Bukkit.createInventory(
-                inventory.getHolder(),
-                inventory.getSize(),
-                Component.text(title)
-        ));
-    }
-
     private void ensureMainBranch(String dialogueId) {
         DialogueCore.Dialogue dialogue = core.getDialogue(dialogueId);
 
@@ -7520,37 +7075,7 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void ensureDialogueSaved(String dialogueId) {
-        if (validDialogue(dialogueId)) {
-            core.saveDialogue(dialogueId);
-        }
-    }
 
-    private void ensureBranchSaved(String dialogueId, String nodeId) {
-        if (validBranch(dialogueId, nodeId)) {
-            core.saveDialogue(dialogueId);
-        }
-    }
-
-    private void ensureAnswerSaved(
-            String dialogueId,
-            String nodeId,
-            String answerId
-    ) {
-        if (validAnswer(dialogueId, nodeId, answerId)) {
-            core.saveDialogue(dialogueId);
-        }
-    }
-
-    private void clearPlayerPrompt(UUID playerId) {
-        if (playerId != null) {
-            chatPrompts.remove(playerId);
-        }
-    }
-
-    private void clearAllPrompts() {
-        chatPrompts.clear();
-    }
     private String answerSetting(
             String dialogueId,
             String nodeId,
