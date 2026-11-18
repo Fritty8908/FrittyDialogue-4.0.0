@@ -5777,8 +5777,7 @@ public final class DialogueEditor implements Listener {
             openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
         });
     }
-
-    private void changeRewardAmount(
+    
     private void changeRewardAmount(
             Player player,
             String dialogueId,
