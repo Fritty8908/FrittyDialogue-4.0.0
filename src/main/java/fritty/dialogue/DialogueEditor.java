@@ -277,7 +277,7 @@ public final class DialogueEditor implements Listener {
         holder.inventory = Bukkit.createInventory(
                 holder,
                 size,
-                Component.text(title, NamedTextColor.DARK_RED)
+                LegacyComponentSerializer.legacySection().deserialize(title)
         );
 
         fillBackground(holder.inventory);
@@ -1214,7 +1214,7 @@ public final class DialogueEditor implements Listener {
                         Material.PAPER,
                         "Ширина текстового вікна",
                         NamedTextColor.YELLOW,
-                        "Змінити ширину вікна"
+                        "Змінити ширину рядка"
                 )
         );
 
@@ -1224,7 +1224,7 @@ public final class DialogueEditor implements Listener {
                         Material.BLACK_STAINED_GLASS_PANE,
                         "Прозорість фону",
                         NamedTextColor.YELLOW,
-                        "Змінити прозорість фону вікна"
+                        "Змінити прозорість фону діалогу"
                 )
         );
 
@@ -1256,7 +1256,7 @@ public final class DialogueEditor implements Listener {
                         NamedTextColor.GOLD,
                         "Масштаб тексту: "
                                 + globalSettingDisplay(dialogueId, "text-scale", "Стандартне"),
-                        "Ширина вікна: "
+                        "Ширина рядка: "
                                 + globalSettingDisplay(dialogueId, "window-width", "Стандартне"),
                         "Прозорість фону: "
                                 + globalSettingDisplay(dialogueId, "background-alpha", "Стандартне"),
@@ -1489,7 +1489,7 @@ public final class DialogueEditor implements Listener {
                                 + branchSettingDisplay(dialogueId, nodeId, "background-color"),
                         "Масштаб тексту: "
                                 + branchSettingDisplay(dialogueId, nodeId, "text-scale"),
-                        "Ширина вікна: "
+                        "Ширина рядка: "
                                 + branchSettingDisplay(dialogueId, nodeId, "window-width"),
                         "Прозорість фону: "
                                 + branchSettingDisplay(dialogueId, nodeId, "background-alpha"),
@@ -1922,7 +1922,7 @@ public final class DialogueEditor implements Listener {
                     slots[i - start],
                     item(
                             Material.CHEST,
-                            reward.getType().name(),
+                            reward.getType(),
                             NamedTextColor.YELLOW,
                             "ID: " + reward.getId(),
                             "Значення: " + reward.getValue(),
@@ -2064,7 +2064,7 @@ public final class DialogueEditor implements Listener {
                 )
         );
 
-        if ("item".equalsIgnoreCase(reward.getType().name())) {
+        if ("item".equalsIgnoreCase(reward.getType())) {
             holder.inventory.setItem(
                     15,
                     item(
@@ -2950,7 +2950,7 @@ public final class DialogueEditor implements Listener {
                     200,
                     5,
                     20,
-                    1000,
+                    240,
                     true,
                     click
             );
@@ -3179,7 +3179,7 @@ public final class DialogueEditor implements Listener {
 
             case 23 -> requestGlobalNumber(
                     player, holder.dialogueId,
-                    "window-width", "Ширина вікна"
+                    "window-width", "Ширина рядка"
             );
 
             case 24 -> requestGlobalNumber(
@@ -3286,7 +3286,7 @@ public final class DialogueEditor implements Listener {
                     200,
                     5,
                     20,
-                    1000,
+                    240,
                     true,
                     click
             );
@@ -4608,7 +4608,7 @@ public final class DialogueEditor implements Listener {
                             }
                             case "window-width" -> {
                                 minimum = 20;
-                                maximum = 1000;
+                                maximum = 240;
                                 integerOnly = true;
                             }
                             case "background-alpha" -> {
@@ -5437,7 +5437,7 @@ public final class DialogueEditor implements Listener {
         for (int i = 0; i < keys.length; i++) {
             inventory.setItem(i, item(
                     Material.PAPER,
-                    "§e" + keys[i],
+                    "§e" + (keys[i].equals("window-width") ? "Ширина рядка" : keys[i]),
                     "§7Натисніть, щоб скинути",
                     "§7значення до успадкованого"
             ));
