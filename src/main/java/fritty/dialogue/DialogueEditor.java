@@ -1519,14 +1519,7 @@ public final class DialogueEditor implements Listener {
             String answerId,
             int page
     ) {
-        EditorHolder holder = createHolder(
-                Screen.CONDITION_EDITOR,
-                dialogueId,
-                nodeId,
-                answerId,
-                page,
-                "Умови доступності"
-        );
+        EditorHolder holder;
 
         DialogueCore.Node node = getNode(dialogueId, nodeId);
 
@@ -2051,17 +2044,6 @@ public final class DialogueEditor implements Listener {
         holder.extraId = rewardId;
 
         holder.inventory.setItem(
-                10,
-                item(
-                        Material.CHEST,
-                        "Тип нагороди",
-                        NamedTextColor.YELLOW,
-                        "Поточний тип: " + reward.getType().name(),
-                        "Натисніть, щоб змінити"
-                )
-        );
-
-        holder.inventory.setItem(
                 12,
                 item(
                         Material.PAPER,
@@ -2566,10 +2548,6 @@ public final class DialogueEditor implements Listener {
         return click == ClickType.SHIFT_RIGHT;
     }
 
-    private boolean isPlainClick(ClickType click) {
-        return isLeft(click) || isRight(click);
-    }
-
     private String entryAt(
             EditorHolder holder,
             int slot
@@ -2585,15 +2563,6 @@ public final class DialogueEditor implements Listener {
         }
 
         return null;
-    }
-
-    private void playClickSound(Player player) {
-        player.playSound(
-                player.getLocation(),
-                Sound.UI_BUTTON_CLICK,
-                0.5f,
-                1.2f
-        );
     }
 
     private void handleMainClick(
@@ -5053,7 +5022,9 @@ public final class DialogueEditor implements Listener {
                 player,
                 "Введіть Offset у форматі X Y Z:",
                 input -> {
-                    String[] parts = input.trim().split("\\s+");
+                    String[] parts = input.trim()
+                            .replace(',', '.')
+                            .split("\\s+");
 
                     try {
                         if (parts.length != 3) {
@@ -5066,19 +5037,14 @@ public final class DialogueEditor implements Listener {
 
                         if (!Double.isFinite(x)
                                 || !Double.isFinite(y)
-                                || !Double.isFinite(z)
-                                || Math.abs(x) > 1000
-                                || Math.abs(y) > 1000
-                                || Math.abs(z) > 1000) {
+                                || !Double.isFinite(z)) {
                             throw new NumberFormatException();
                         }
 
                         String value = String.format(
                                 Locale.US,
                                 "%.3f %.3f %.3f",
-                                x,
-                                y,
-                                z
+                                x, y, z
                         );
 
                         core.setAnswerSetting(
@@ -5111,6 +5077,7 @@ public final class DialogueEditor implements Listener {
                 }
         );
     }
+    
     private void openSoundParameters(
             Player player,
             String dialogueId,
@@ -5146,26 +5113,6 @@ public final class DialogueEditor implements Listener {
         ));
 
         player.openInventory(inventory);
-    }
-
-    private void toggleBranchSetting(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String key
-    ) {
-        String current = core.getBranchSetting(dialogueId, nodeId, key);
-        boolean enabled = Boolean.parseBoolean(current);
-
-        core.setBranchSetting(
-                dialogueId,
-                nodeId,
-                key,
-                String.valueOf(!enabled)
-        );
-
-        save(dialogueId);
-        openBranchSettings(player, dialogueId, nodeId);
     }
 
     private void openColorPicker(
@@ -5797,54 +5744,6 @@ public final class DialogueEditor implements Listener {
         });
     }
 
-    private void changeRewardType(
-            Player player,
-            String dialogueId,
-            String nodeId,
-            String answerId,
-            String rewardId
-    ) {
-        requestChatInput(player, "Введіть тип нагороди (command або item):", input -> {
-            String type;
-
-            if (input.trim().equalsIgnoreCase("command")) {
-                type = "command";
-            } else if (input.trim().equalsIgnoreCase("item")) {
-                type = "item";
-            } else {
-                player.sendMessage(Component.text(
-                        "Доступні типи: command або item."
-                ));
-                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-                return;
-            }
-
-            if (answerId != null) {
-                core.updateAnswerReward(
-                        dialogueId,
-                        nodeId,
-                        answerId,
-                        rewardId,
-                        type,
-                        null,
-                        null
-                );
-            } else {
-                core.updateBranchReward(
-                        dialogueId,
-                        nodeId,
-                        rewardId,
-                        type,
-                        null,
-                        null
-                );
-            }
-
-            save(dialogueId);
-            openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-        });
-    }
-
     private void changeRewardValue(
             Player player,
             String dialogueId,
@@ -5880,49 +5779,63 @@ public final class DialogueEditor implements Listener {
     }
 
     private void changeRewardAmount(
+    private void changeRewardAmount(
             Player player,
             String dialogueId,
             String nodeId,
             String answerId,
             String rewardId
     ) {
-        requestChatInput(player, "Введіть кількість предметів:", input -> {
-            try {
-                int amount = Integer.parseInt(input.trim());
+        requestChatInput(
+                player,
+                "Введіть кількість предметів:",
+                input -> {
+                    try {
+                        int amount = Integer.parseInt(input.trim());
 
-                if (amount < 1 || amount > 2304) {
-                    throw new NumberFormatException();
-                }
+                        if (amount < 1) {
+                            throw new NumberFormatException();
+                        }
 
-                if (answerId != null) {
-                    core.updateAnswerReward(
+                        amount = Math.min(amount, 2304);
+
+                        if (answerId != null) {
+                            core.updateAnswerReward(
+                                    dialogueId,
+                                    nodeId,
+                                    answerId,
+                                    rewardId,
+                                    null,
+                                    null,
+                                    amount
+                            );
+                        } else {
+                            core.updateBranchReward(
+                                    dialogueId,
+                                    nodeId,
+                                    rewardId,
+                                    null,
+                                    null,
+                                    amount
+                            );
+                        }
+
+                        save(dialogueId);
+                    } catch (NumberFormatException exception) {
+                        player.sendMessage(Component.text(
+                                "Введіть ціле число не менше 1."
+                        ));
+                    }
+
+                    openRewardMenu(
+                            player,
                             dialogueId,
                             nodeId,
                             answerId,
-                            rewardId,
-                            null,
-                            null,
-                            amount
-                    );
-                } else {
-                    core.updateBranchReward(
-                            dialogueId,
-                            nodeId,
-                            rewardId,
-                            null,
-                            null,
-                            amount
+                            rewardId
                     );
                 }
-
-                save(dialogueId);
-                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-
-            } catch (NumberFormatException exception) {
-                player.sendMessage(Component.text("Введіть число від 1 до 2304."));
-                openRewardMenu(player, dialogueId, nodeId, answerId, rewardId);
-            }
-        });
+        );
     }
 
     private void captureRewardItem(
