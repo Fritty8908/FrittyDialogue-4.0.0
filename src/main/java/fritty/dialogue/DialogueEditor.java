@@ -4613,24 +4613,80 @@ public final class DialogueEditor implements Listener {
         }
     }
 
-    private void requestGlobalNumber(Player player, String dialogueId, String key, String title) {
-        requestChatInput(player, "Введіть значення для параметра «" + title + "»:", input -> {
-            try {
-                double value = Double.parseDouble(input.trim());
+    private void requestGlobalNumber(
+            Player player,
+            String dialogueId,
+            String key,
+            String title
+    ) {
+        requestChatInput(
+                player,
+                "Введіть значення для параметра «" + title + "»:",
+                input -> {
+                    try {
+                        double value = Double.parseDouble(
+                                input.trim().replace(',', '.')
+                        );
 
-                if (!Double.isFinite(value) || value < 0) {
-                    throw new NumberFormatException();
+                        double minimum = 0;
+                        double maximum = Double.POSITIVE_INFINITY;
+                        boolean integerOnly = false;
+
+                        switch (key) {
+                            case "text-scale" -> {
+                                minimum = 0.1;
+                                maximum = 10.0;
+                            }
+                            case "window-width" -> {
+                                minimum = 20;
+                                maximum = 1000;
+                                integerOnly = true;
+                            }
+                            case "background-alpha" -> {
+                                minimum = 0;
+                                maximum = 255;
+                                integerOnly = true;
+                            }
+                            default -> {
+                                // Для typing-speed максимум поки не встановлюємо.
+                            }
+                        }
+
+                        if (!Double.isFinite(value)
+                                || value < minimum
+                                || (integerOnly
+                                && value != Math.rint(value))) {
+                            throw new NumberFormatException();
+                        }
+
+                        value = Math.min(value, maximum);
+
+                        String storedValue = integerOnly
+                                ? String.valueOf((long) value)
+                                : String.format(Locale.US, "%.2f", value);
+
+                        core.setGlobalSetting(
+                                dialogueId,
+                                key,
+                                storedValue
+                        );
+
+                        save(dialogueId);
+
+                        player.sendMessage(Component.text(
+                                "Параметр збережено.",
+                                NamedTextColor.GREEN
+                        ));
+                    } catch (NumberFormatException exception) {
+                        player.sendMessage(Component.text(
+                                "Некоректне числове значення.",
+                                NamedTextColor.RED
+                        ));
+                    }
+
+                    openDialogueSettings(player, dialogueId);
                 }
-
-                core.setGlobalSetting(dialogueId, key, String.valueOf(value));
-                save(dialogueId);
-                player.sendMessage(Component.text("Параметр збережено."));
-            } catch (NumberFormatException exception) {
-                player.sendMessage(Component.text("Потрібно ввести невід'ємне число."));
-            }
-
-            openDialogueSettings(player, dialogueId);
-        });
+        );
     }
 
     private void requestBranchNumber(
@@ -4640,30 +4696,44 @@ public final class DialogueEditor implements Listener {
             String key,
             String title
     ) {
-        requestChatInput(player, "Введіть значення для параметра «" + title + "»:", input -> {
-            try {
-                double value = Double.parseDouble(input.trim());
+        requestChatInput(
+                player,
+                "Введіть значення для параметра «" + title + "»:",
+                input -> {
+                    try {
+                        double value = Double.parseDouble(
+                                input.trim().replace(',', '.')
+                        );
 
-                if (!Double.isFinite(value) || value < 0) {
-                    throw new NumberFormatException();
+                        if (!Double.isFinite(value) || value < 0) {
+                            throw new NumberFormatException();
+                        }
+
+                        core.setBranchSetting(
+                                dialogueId,
+                                nodeId,
+                                key,
+                                String.valueOf(value)
+                        );
+
+                        save(dialogueId);
+
+                        player.sendMessage(Component.text(
+                                "Параметр гілки збережено.",
+                                NamedTextColor.GREEN
+                        ));
+                    } catch (NumberFormatException exception) {
+                        player.sendMessage(Component.text(
+                                "Потрібно ввести невід'ємне число.",
+                                NamedTextColor.RED
+                        ));
+                    }
+
+                    openBranchSettings(player, dialogueId, nodeId);
                 }
-
-                core.setBranchSetting(
-                        dialogueId,
-                        nodeId,
-                        key,
-                        String.valueOf(value)
-                );
-
-                save(dialogueId);
-                player.sendMessage(Component.text("Параметр гілки збережено."));
-            } catch (NumberFormatException exception) {
-                player.sendMessage(Component.text("Потрібно ввести невід'ємне число."));
-            }
-
-            openBranchSettings(player, dialogueId, nodeId);
-        });
+        );
     }
+    
     private boolean isBranchNumericSettingSlot(int slot) {
         return slot == 12 || slot == 17 || slot == 18;
     }
@@ -4720,19 +4790,17 @@ public final class DialogueEditor implements Listener {
 
                             if (!Double.isFinite(value)
                                     || value < minimum
-                                    || value > maximum
                                     || (integerOnly
                                     && value != Math.rint(value))) {
                                 throw new NumberFormatException();
                             }
 
+                            // Значення вище максимуму автоматично обмежується.
+                            value = Math.min(value, maximum);
+
                             String storedValue = integerOnly
                                     ? String.valueOf((long) value)
-                                    : String.format(
-                                            Locale.US,
-                                            "%.2f",
-                                            value
-                                    );
+                                    : String.format(Locale.US, "%.2f", value);
 
                             core.setBranchSetting(
                                     dialogueId,
@@ -4744,26 +4812,36 @@ public final class DialogueEditor implements Listener {
                             save(dialogueId);
 
                             player.sendMessage(Component.text(
-                                    "Значення параметра збережено."
+                                    "Значення параметра збережено.",
+                                    NamedTextColor.GREEN
                             ));
                         } catch (NumberFormatException exception) {
                             player.sendMessage(Component.text(
-                                    "Некоректне значення. Допустимий діапазон: "
-                                            + minimum + "–" + maximum
+                                    "Некоректне значення. Мінімум: "
+                                            + minimum
                                             + (integerOnly
                                             ? ". Потрібне ціле число."
-                                            : ".")
+                                            : "."),
+                                    NamedTextColor.RED
                             ));
                         }
 
                         openBranchSettings(
-                                player, dialogueId, nodeId
+                                player,
+                                dialogueId,
+                                nodeId
                         );
                     },
                     () -> openBranchSettings(
-                            player, dialogueId, nodeId
+                            player,
+                            dialogueId,
+                            nodeId
                     )
             );
+            return;
+        }
+
+        if (!isLeft(click) && !isRight(click)) {
             return;
         }
 
@@ -4773,6 +4851,7 @@ public final class DialogueEditor implements Listener {
                 key
         );
 
+        // Для гілки зберігається чинна логіка успадкування від діалогу.
         if (stored == null || stored.isBlank()) {
             stored = core.getGlobalSetting(
                     dialogueId,
@@ -4784,7 +4863,11 @@ public final class DialogueEditor implements Listener {
 
         if (stored != null && !stored.isBlank()) {
             try {
-                current = Double.parseDouble(stored);
+                double parsed = Double.parseDouble(stored);
+
+                if (Double.isFinite(parsed)) {
+                    current = parsed;
+                }
             } catch (NumberFormatException ignored) {
                 current = defaultValue;
             }
@@ -4792,10 +4875,8 @@ public final class DialogueEditor implements Listener {
 
         if (isLeft(click)) {
             current -= step;
-        } else if (isRight(click)) {
-            current += step;
         } else {
-            return;
+            current += step;
         }
 
         current = Math.max(
@@ -4817,9 +4898,12 @@ public final class DialogueEditor implements Listener {
         save(dialogueId);
 
         openBranchSettings(
-                player, dialogueId, nodeId
+                player,
+                dialogueId,
+                nodeId
         );
     }
+
     private void adjustAnswerNumber(
             Player player,
             String dialogueId,
@@ -4846,19 +4930,16 @@ public final class DialogueEditor implements Listener {
 
                             if (!Double.isFinite(value)
                                     || value < minimum
-                                    || value > maximum
                                     || (integerOnly
                                     && value != Math.rint(value))) {
                                 throw new NumberFormatException();
                             }
 
+                            value = Math.min(value, maximum);
+
                             String storedValue = integerOnly
                                     ? String.valueOf((long) value)
-                                    : String.format(
-                                            Locale.US,
-                                            "%.2f",
-                                            value
-                                    );
+                                    : String.format(Locale.US, "%.2f", value);
 
                             core.setAnswerSetting(
                                     dialogueId,
@@ -4876,8 +4957,8 @@ public final class DialogueEditor implements Listener {
                             ));
                         } catch (NumberFormatException exception) {
                             player.sendMessage(Component.text(
-                                    "Некоректне значення. Допустимий діапазон: "
-                                            + minimum + "–" + maximum
+                                    "Некоректне значення. Мінімум: "
+                                            + minimum
                                             + (integerOnly
                                             ? ". Потрібне ціле число."
                                             : "."),
@@ -4906,6 +4987,8 @@ public final class DialogueEditor implements Listener {
             return;
         }
 
+        // Відповідь використовує тільки власне значення.
+        // Якщо його немає — береться стандартне.
         String stored = core.getAnswerSetting(
                 dialogueId,
                 nodeId,
@@ -4913,26 +4996,15 @@ public final class DialogueEditor implements Listener {
                 key
         );
 
-        if (stored == null || stored.isBlank()) {
-            stored = core.getBranchSetting(
-                    dialogueId,
-                    nodeId,
-                    key
-            );
-        }
-
-        if (stored == null || stored.isBlank()) {
-            stored = core.getGlobalSetting(
-                    dialogueId,
-                    key
-            );
-        }
-
         double current = defaultValue;
 
         if (stored != null && !stored.isBlank()) {
             try {
-                current = Double.parseDouble(stored);
+                double parsed = Double.parseDouble(stored);
+
+                if (Double.isFinite(parsed)) {
+                    current = parsed;
+                }
             } catch (NumberFormatException ignored) {
                 current = defaultValue;
             }
@@ -7486,7 +7558,7 @@ public final class DialogueEditor implements Listener {
             String key,
             String fallback
     ) {
-        String value = core.getEffectiveAnswerSetting(
+        String value = core.getAnswerSetting(
                 dialogueId,
                 nodeId,
                 answerId,
@@ -7506,32 +7578,18 @@ public final class DialogueEditor implements Listener {
             String fallback
     ) {
         String own = core.getAnswerSetting(
-                dialogueId, nodeId, answerId, key
+                dialogueId,
+                nodeId,
+                answerId,
+                key
         );
 
         if (own != null && !own.isBlank()) {
             return own + " (власне)";
         }
 
-        String branch = core.getBranchSetting(
-                dialogueId, nodeId, key
-        );
-
-        if (branch != null && !branch.isBlank()) {
-            return branch + " (успадковано від гілки)";
-        }
-
-        String global = core.getGlobalSetting(
-                dialogueId, key
-        );
-
-        if (global != null && !global.isBlank()) {
-            return global + " (успадковано від діалогу)";
-        }
-
         return fallback + " (стандартне)";
     }
-
     private String globalSettingDisplay(
             String dialogueId,
             String key,
