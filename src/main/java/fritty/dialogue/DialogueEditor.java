@@ -2123,8 +2123,7 @@ public final class DialogueEditor implements Listener {
                 List.of(Sound.values())
         );
 
-        sounds.sort(Comparator.comparing(Enum::name));
-
+        sounds.sort((first, second) -> first.name().compareTo(second.name()));
         int maxPage = Math.max(
                 0,
                 (sounds.size() - 1) / ENTRIES_PER_PAGE
