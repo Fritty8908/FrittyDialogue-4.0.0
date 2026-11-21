@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -29,10 +29,21 @@ jobs:
       - name: Build with Maven
         run: mvn --batch-mode --no-transfer-progress clean package
 
-      - name: Upload plugin JAR
+      - name: Upload plugin JAR as workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: FrittyDialogue-4.0.0
           path: target/FrittyDialogue.jar
           if-no-files-found: error
+
+      - name: Publish direct JAR download in GitHub Releases
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-latest
+          name: FrittyDialogue 4.0.0 - Latest build
+          body: Automatically updated latest compiled JAR.
+          files: target/FrittyDialogue.jar
+          make_latest: true
+          fail_on_unmatched_files: true
           
